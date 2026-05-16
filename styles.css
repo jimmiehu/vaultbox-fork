@@ -89,3 +89,14 @@
   text-align: left;
   width: 100%;
 }
+
+.vaultbox-new-folder {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.vaultbox-new-folder input {
+  flex: 1 1 auto;
+  min-width: 0;
+}

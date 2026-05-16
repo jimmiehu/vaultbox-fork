@@ -292,15 +292,30 @@ class DropboxFolderPickerModal extends Modal {
     this.statusEl = this.contentEl.createDiv({ cls: "vaultbox-status" });
     this.foldersEl = this.contentEl.createDiv({ cls: "vaultbox-folder-list" });
 
+    const newFolder = this.contentEl.createDiv({ cls: "vaultbox-new-folder" });
+    const input = newFolder.createEl("input", {
+      attr: {
+        placeholder: "New folder name",
+        type: "text",
+      },
+    });
+    const createButton = newFolder.createEl("button", { text: "Create folder" });
+    const createFromInput = async () => {
+      await this.createFolder(input.value);
+    };
+    createButton.addEventListener("click", createFromInput);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void createFromInput();
+      }
+    });
+
     const actions = this.contentEl.createDiv({ cls: "vaultbox-modal-actions" });
     actions.createEl("button", { text: "Up" }).addEventListener("click", () => {
       this.currentPath = getParentPath(this.currentPath);
       this.render();
       void this.loadFolders();
-    });
-
-    actions.createEl("button", { text: "New folder" }).addEventListener("click", async () => {
-      await this.createFolder();
     });
 
     const chooseButton = actions.createEl("button", {
@@ -353,11 +368,11 @@ class DropboxFolderPickerModal extends Modal {
     }
   }
 
-  private async createFolder(): Promise<void> {
-    const name = window.prompt("New Dropbox folder name");
-    const folderName = name?.trim();
+  private async createFolder(name: string): Promise<void> {
+    const folderName = name.trim();
 
     if (!folderName) {
+      this.setStatus("Enter a folder name first.");
       return;
     }
 
