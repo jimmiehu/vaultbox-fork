@@ -10,6 +10,10 @@ export interface VaultboxSettings {
   localChangeIndicatorEnabled: boolean;
   remoteChangeIndicatorEnabled: boolean;
   remoteChangeCheckIntervalMinutes: number;
+  debugLogging: boolean;
+  lastSyncStartedAt: number | null;
+  lastSyncCompletedAt: number | null;
+  lastSyncSummary: string;
 }
 
 export const DEFAULT_SETTINGS: VaultboxSettings = {
@@ -24,6 +28,10 @@ export const DEFAULT_SETTINGS: VaultboxSettings = {
   localChangeIndicatorEnabled: true,
   remoteChangeIndicatorEnabled: false,
   remoteChangeCheckIntervalMinutes: 15,
+  debugLogging: false,
+  lastSyncStartedAt: null,
+  lastSyncCompletedAt: null,
+  lastSyncSummary: "",
 };
 
 export interface DropboxAuthSession {

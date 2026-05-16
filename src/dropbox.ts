@@ -60,6 +60,13 @@ export class DropboxClient {
     }
   }
 
+  async listFolders(path: string): Promise<DropboxFolderMetadata[]> {
+    const result = await this.listFolder(path);
+    return result.entries
+      .filter((entry): entry is DropboxFolderMetadata => entry.tag === "folder")
+      .sort((first, second) => first.name.localeCompare(second.name));
+  }
+
   async createFolder(path: string): Promise<void> {
     try {
       await this.rpc<unknown>("/files/create_folder_v2", {

@@ -72,6 +72,44 @@ describe("DropboxClient", () => {
     );
   });
 
+  it("lists immediate Dropbox folders for picker navigation", async () => {
+    setRequestUrlMock(async () => ({
+      status: 200,
+      text: "",
+      json: {
+        entries: [
+          {
+            ".tag": "file",
+            name: "A.md",
+            path_display: "/A.md",
+            path_lower: "/a.md",
+            id: "id:file",
+            rev: "rev-a",
+            content_hash: "hash-a",
+          },
+          {
+            ".tag": "folder",
+            name: "Vaults",
+            path_display: "/Vaults",
+            path_lower: "/vaults",
+            id: "id:vaults",
+          },
+        ],
+        cursor: "cursor",
+        has_more: false,
+      },
+      headers: {},
+    }));
+
+    const client = new DropboxClient({ getAccessToken: async () => "token" });
+    await expect(client.listFolders("")).resolves.toEqual([
+      expect.objectContaining({
+        tag: "folder",
+        pathDisplay: "/Vaults",
+      }),
+    ]);
+  });
+
   it("uses update mode with rev for guarded uploads", async () => {
     const request = vi.fn(async () => ({
       status: 200,

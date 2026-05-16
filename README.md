@@ -12,9 +12,9 @@ This repository is the first scaffold. It includes:
 
 - Obsidian plugin build/test setup.
 - Dropbox OAuth code flow with PKCE and offline refresh tokens.
-- Full Dropbox folder-path configuration.
+- Dropbox folder picker for choosing an existing non-root vault folder.
 - A starter Dropbox API client for listing, validating, uploading, downloading, and deleting files.
-- A plan-first sync planner and simulation button that compare local vault files with Dropbox without mutating either side.
+- A plan-first sync planner, simulation button, and debug log that compare local vault files with Dropbox without mutating either side.
 - A guarded sync executor that applies conflict-free plans with local hash and Dropbox `rev` rechecks.
 - Tests around auth, Dropbox API assumptions, and local/remote sync planning conflicts.
 

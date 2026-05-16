@@ -1,4 +1,5 @@
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, Modal, Notice, PluginSettingTab, Setting } from "obsidian";
+import type { DropboxFolderMetadata } from "./types";
 import { VAULTBOX_ICON } from "./icons";
 import type VaultboxPlugin from "./main";
 
@@ -34,42 +35,55 @@ export class VaultboxSettingTab extends PluginSettingTab {
           });
       });
 
-    new Setting(containerEl)
-      .setName("Authorization code")
-      .setDesc("Paste the code Dropbox shows after approval.")
-      .addText((text) => {
-        text.setPlaceholder("Dropbox authorization code");
-      })
-      .addButton((button) => {
-        button
-          .setButtonText("Save code")
-          .onClick(async () => {
-            const input = button.buttonEl.parentElement?.querySelector("input");
-            const code = input instanceof HTMLInputElement ? input.value.trim() : "";
-            if (!code) {
-              new Notice("Paste a Dropbox authorization code first.");
-              return;
-            }
+    if (!this.plugin.isConnected()) {
+      new Setting(containerEl)
+        .setName("Authorization code")
+        .setDesc("Paste the code Dropbox shows after approval.")
+        .addText((text) => {
+          text.setPlaceholder("Dropbox authorization code");
+        })
+        .addButton((button) => {
+          button
+            .setButtonText("Save code")
+            .onClick(async () => {
+              const input = button.buttonEl.parentElement?.querySelector("input");
+              const code = input instanceof HTMLInputElement ? input.value.trim() : "";
+              if (!code) {
+                new Notice("Paste a Dropbox authorization code first.");
+                return;
+              }
 
-            try {
-              await this.plugin.finishDropboxAuth(code);
-              this.display();
-            } catch (error) {
-              this.setStatus(error instanceof Error ? error.message : String(error));
-            }
-          });
-      });
+              try {
+                await this.plugin.finishDropboxAuth(code);
+                this.display();
+              } catch (error) {
+                this.setStatus(error instanceof Error ? error.message : String(error));
+              }
+            });
+        });
+    }
 
     new Setting(containerEl)
       .setName("Dropbox vault folder")
-      .setDesc("Full Dropbox access lets Vaultbox sync an existing folder already used by the Dropbox desktop app.")
-      .addText((text) => {
-        text
-          .setPlaceholder("/Obsidian/My Vault")
-          .setValue(this.plugin.settings.selectedFolderPath)
-          .onChange(async (value) => {
-            this.plugin.settings.selectedFolderPath = value;
-            await this.plugin.saveSettings();
+      .setDesc(
+        this.plugin.settings.selectedFolderPath ||
+        "Choose an existing Dropbox folder. The Dropbox root cannot be used.",
+      )
+      .addButton((button) => {
+        button
+          .setButtonText("Choose")
+          .setCta()
+          .onClick(() => {
+            if (!this.plugin.isConnected()) {
+              new Notice("Connect Dropbox before choosing a folder.");
+              return;
+            }
+
+            new DropboxFolderPickerModal(this.app, this.plugin, async (folderPath) => {
+              this.plugin.settings.selectedFolderPath = folderPath;
+              await this.plugin.saveSettings();
+              this.display();
+            }).open();
           });
       })
       .addButton((button) => {
@@ -86,22 +100,8 @@ export class VaultboxSettingTab extends PluginSettingTab {
       });
 
     this.addSyncSettings(containerEl);
-
-    new Setting(containerEl)
-      .setName("Simulate sync")
-      .setDesc("Builds the full sync plan and reports what would change without writing to Dropbox or your vault.")
-      .addButton((button) => {
-        button
-          .setButtonText("Simulate")
-          .onClick(async () => {
-            try {
-              this.setStatus("Building sync plan...");
-              this.setStatus(await this.plugin.simulateSync());
-            } catch (error) {
-              this.setStatus(error instanceof Error ? error.message : String(error));
-            }
-          });
-      });
+    this.addDebugSettings(containerEl);
+    this.addActions(containerEl);
   }
 
   private addHeader(containerEl: HTMLElement): void {
@@ -172,6 +172,79 @@ export class VaultboxSettingTab extends PluginSettingTab {
             });
         });
     }
+
+    new Setting(containerEl)
+      .setName("Last sync")
+      .setDesc(this.plugin.settings.lastSyncSummary || "No completed sync yet.");
+  }
+
+  private addDebugSettings(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName("Debug logging")
+      .setDesc("Store a small rolling sync log in plugin data. Tokens are redacted.")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.debugLogging)
+          .onChange(async (value) => {
+            this.plugin.settings.debugLogging = value;
+            await this.plugin.saveSettings();
+            this.display();
+          });
+      });
+
+    if (!this.plugin.settings.debugLogging && this.plugin.getDebugLogCount() === 0) {
+      return;
+    }
+
+    new Setting(containerEl)
+      .setName("Debug log")
+      .setDesc(`${this.plugin.getDebugLogCount()} entries. The log is shown below and can be selected manually.`)
+      .addButton((button) => {
+        button
+          .setButtonText("Clear")
+          .onClick(async () => {
+            await this.plugin.clearDebugLog();
+            new Notice("Vaultbox debug log cleared.");
+            this.display();
+          });
+      });
+
+    const preview = containerEl.createEl("textarea", {
+      cls: "vaultbox-debug-log",
+    });
+    preview.readOnly = true;
+    preview.value = this.plugin.getDebugLogText();
+  }
+
+  private addActions(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName("Simulate sync")
+      .setDesc("Scans the vault and Dropbox, builds the sync plan, and reports what would happen without changing files or metadata.")
+      .addButton((button) => {
+        button
+          .setButtonText("Simulate")
+          .onClick(async () => {
+            button.setDisabled(true);
+            button.setButtonText("Simulating...");
+            await this.plugin.simulateSync();
+            this.display();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Manual sync")
+      .setDesc("Run a sync now.")
+      .addButton((button) => {
+        button
+          .setButtonText("Sync now")
+          .setCta()
+          .onClick(async () => {
+            button.setDisabled(true);
+            button.setButtonText("Syncing...");
+            await this.plugin.syncNow();
+            this.display();
+          });
+      });
   }
 
   private setStatus(message: string): void {
@@ -179,4 +252,114 @@ export class VaultboxSettingTab extends PluginSettingTab {
       this.statusEl.setText(message);
     }
   }
+}
+
+class DropboxFolderPickerModal extends Modal {
+  private currentPath = "";
+  private statusEl: HTMLElement | null = null;
+  private foldersEl: HTMLElement | null = null;
+
+  constructor(
+    app: App,
+    private readonly plugin: VaultboxPlugin,
+    private readonly onChoose: (folderPath: string) => Promise<void>,
+  ) {
+    super(app);
+    this.currentPath = this.plugin.settings.selectedFolderPath;
+  }
+
+  onOpen(): void {
+    this.titleEl.setText("Choose Dropbox folder");
+    this.render();
+    void this.loadFolders();
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+
+  private render(): void {
+    this.contentEl.empty();
+    this.contentEl.createEl("p", {
+      cls: "vaultbox-modal-copy",
+      text: "Choose the Dropbox folder that contains this vault. The Dropbox root cannot be selected.",
+    });
+
+    const current = this.contentEl.createDiv({ cls: "vaultbox-picker-current" });
+    current.createSpan({ text: "Current folder" });
+    current.createSpan({ text: this.currentPath || "Dropbox root" });
+
+    this.statusEl = this.contentEl.createDiv({ cls: "vaultbox-status" });
+    this.foldersEl = this.contentEl.createDiv({ cls: "vaultbox-folder-list" });
+
+    const actions = this.contentEl.createDiv({ cls: "vaultbox-modal-actions" });
+    actions.createEl("button", { text: "Up" }).addEventListener("click", () => {
+      this.currentPath = getParentPath(this.currentPath);
+      this.render();
+      void this.loadFolders();
+    });
+
+    const chooseButton = actions.createEl("button", {
+      cls: "mod-cta",
+      text: "Choose this folder",
+    });
+    chooseButton.disabled = !this.currentPath;
+    chooseButton.addEventListener("click", async () => {
+      if (!this.currentPath) {
+        this.setStatus("Choose a folder below the Dropbox root.");
+        return;
+      }
+
+      await this.onChoose(this.currentPath);
+      this.close();
+    });
+
+    actions.createEl("button", { text: "Cancel" }).addEventListener("click", () => {
+      this.close();
+    });
+  }
+
+  private async loadFolders(): Promise<void> {
+    try {
+      this.setStatus("Loading folders...");
+      const folders = await this.plugin.createDropboxClient().listFolders(this.currentPath);
+      this.renderFolders(folders);
+      this.setStatus(folders.length === 0 ? "No child folders found." : `Loaded ${folders.length} folder${folders.length === 1 ? "" : "s"}.`);
+    } catch (error) {
+      this.setStatus(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  private renderFolders(folders: DropboxFolderMetadata[]): void {
+    if (!this.foldersEl) {
+      return;
+    }
+
+    this.foldersEl.empty();
+    for (const folder of folders) {
+      const button = this.foldersEl.createEl("button", {
+        cls: "vaultbox-folder-option",
+        text: folder.name,
+      });
+      button.addEventListener("click", () => {
+        this.currentPath = folder.pathDisplay || folder.pathLower;
+        this.render();
+        void this.loadFolders();
+      });
+    }
+  }
+
+  private setStatus(message: string): void {
+    this.statusEl?.setText(message);
+  }
+}
+
+function getParentPath(folderPath: string): string {
+  if (!folderPath) {
+    return "";
+  }
+
+  const parts = folderPath.split("/").filter(Boolean);
+  parts.pop();
+  return parts.length === 0 ? "" : `/${parts.join("/")}`;
 }
