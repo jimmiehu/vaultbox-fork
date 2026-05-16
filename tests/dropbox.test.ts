@@ -231,4 +231,53 @@ describe("DropboxClient", () => {
       contentHash: "hash-b",
     });
   });
+
+  it("retries Dropbox upload write throttling responses", async () => {
+    const request = vi.fn(async () => {
+      if (request.mock.calls.length === 1) {
+        return {
+          status: 429,
+          text: '{"error_summary":"too_many_write_operations/..","error":{"reason":{".tag":"too_many_write_operations"},"retry_after":0}}',
+          json: {
+            error_summary: "too_many_write_operations/..",
+            error: {
+              reason: { ".tag": "too_many_write_operations" },
+              retry_after: 0,
+            },
+          },
+          headers: {},
+        };
+      }
+
+      return {
+        status: 200,
+        text: "",
+        json: {
+          ".tag": "file",
+          name: "A.md",
+          path_display: "/A.md",
+          path_lower: "/a.md",
+          id: "id:file",
+          client_modified: "2026-01-01T00:00:00Z",
+          server_modified: "2026-01-01T00:00:01Z",
+          rev: "rev-b",
+          size: 1,
+          content_hash: "hash-b",
+        },
+        headers: {},
+      };
+    });
+    setRequestUrlMock(request);
+
+    const client = new DropboxClient({ getAccessToken: async () => "token" });
+    await expect(
+      client.upload({
+        path: "/A.md",
+        content: new Uint8Array([65]).buffer,
+      }),
+    ).resolves.toMatchObject({
+      rev: "rev-b",
+    });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
 });

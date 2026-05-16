@@ -9,7 +9,7 @@ import {
 } from "./sync-plan";
 import type { DropboxFileMetadata, SyncedFileState, VaultboxSyncState } from "./types";
 
-const DEFAULT_UPLOAD_CONCURRENCY = 4;
+const DEFAULT_UPLOAD_CONCURRENCY = 2;
 
 export interface SyncDropboxClient {
   upload(args: { path: string; content: ArrayBuffer; rev?: string }): Promise<DropboxFileMetadata>;

@@ -8,6 +8,7 @@ import type {
 
 const API_URL = "https://api.dropboxapi.com/2";
 const CONTENT_URL = "https://content.dropboxapi.com/2";
+const MAX_UPLOAD_RETRIES = 8;
 
 export interface DropboxTokenProvider {
   getAccessToken(): Promise<string>;
@@ -105,6 +106,8 @@ export class DropboxClient {
         strict_conflict: true,
       },
       args.content,
+      "json",
+      { maxRetries: MAX_UPLOAD_RETRIES },
     );
 
     return normalizeMetadata(result) as DropboxFileMetadata;
@@ -149,28 +152,40 @@ export class DropboxClient {
     args: unknown,
     body?: ArrayBuffer,
     responseType: "json" | "arrayBuffer" = "json",
+    options: { maxRetries?: number } = {},
   ): Promise<T> {
-    const response = await requestUrl({
-      url: `${CONTENT_URL}${endpoint}`,
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${await this.tokenProvider.getAccessToken()}`,
-        "Content-Type": body ? "application/octet-stream" : "",
-        "Dropbox-API-Arg": JSON.stringify(args),
-      },
-      body: body ? arrayBufferToBinaryString(body) : undefined,
-      throw: false,
-    });
+    const maxRetries = options.maxRetries ?? 0;
 
-    if (response.status < 200 || response.status >= 300) {
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      const response = await requestUrl({
+        url: `${CONTENT_URL}${endpoint}`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${await this.tokenProvider.getAccessToken()}`,
+          "Content-Type": body ? "application/octet-stream" : "",
+          "Dropbox-API-Arg": JSON.stringify(args),
+        },
+        body: body ? arrayBufferToBinaryString(body) : undefined,
+        throw: false,
+      });
+
+      if (response.status >= 200 && response.status < 300) {
+        if (responseType === "arrayBuffer") {
+          return stringToArrayBuffer(response.text) as T;
+        }
+
+        return response.json as T;
+      }
+
+      if (attempt < maxRetries && isRetryableDropboxResponse(response)) {
+        await delay(getRetryDelayMs(response, attempt));
+        continue;
+      }
+
       throw new Error(`Dropbox ${endpoint} failed with ${response.status}: ${response.text}`);
     }
 
-    if (responseType === "arrayBuffer") {
-      return stringToArrayBuffer(response.text) as T;
-    }
-
-    return response.json as T;
+    throw new Error(`Dropbox ${endpoint} failed after retrying.`);
   }
 }
 
@@ -250,4 +265,122 @@ function stringToArrayBuffer(value: string): ArrayBuffer {
     bytes[index] = value.charCodeAt(index) & 0xff;
   }
   return bytes.buffer;
+}
+
+function isRetryableDropboxResponse(response: { status: number; text: string; json: unknown }): boolean {
+  if (response.status !== 429) {
+    return false;
+  }
+
+  const errorSummary = getDropboxErrorSummary(response);
+  return errorSummary.includes("too_many_write_operations") || errorSummary.includes("too_many_requests");
+}
+
+function getDropboxErrorSummary(response: { text: string; json: unknown }): string {
+  const jsonSummary = getStringProperty(response.json, "error_summary");
+  if (jsonSummary) {
+    return jsonSummary;
+  }
+
+  try {
+    const parsed = JSON.parse(response.text) as unknown;
+    return getStringProperty(parsed, "error_summary") ?? response.text;
+  } catch {
+    return response.text;
+  }
+}
+
+function getRetryDelayMs(
+  response: { headers: Record<string, string>; text: string; json: unknown },
+  attempt: number,
+): number {
+  const retryAfter = getRetryAfterSeconds(response);
+  if (retryAfter !== null) {
+    return Math.max(0, retryAfter * 1000);
+  }
+
+  return Math.min(1000 * 2 ** attempt, 8000);
+}
+
+function getRetryAfterSeconds(response: {
+  headers: Record<string, string>;
+  text: string;
+  json: unknown;
+}): number | null {
+  const headerValue = getHeader(response.headers, "retry-after");
+  const headerSeconds = parseRetryAfter(headerValue);
+  if (headerSeconds !== null) {
+    return headerSeconds;
+  }
+
+  const jsonRetryAfter = getNumberProperty(response.json, "retry_after");
+  if (jsonRetryAfter !== null) {
+    return jsonRetryAfter;
+  }
+
+  const nestedRetryAfter = getNumberProperty(getObjectProperty(response.json, "error"), "retry_after");
+  if (nestedRetryAfter !== null) {
+    return nestedRetryAfter;
+  }
+
+  try {
+    const parsed = JSON.parse(response.text) as unknown;
+    return getNumberProperty(getObjectProperty(parsed, "error"), "retry_after") ?? getNumberProperty(parsed, "retry_after");
+  } catch {
+    return null;
+  }
+}
+
+function getHeader(headers: Record<string, string>, name: string): string | null {
+  const match = Object.entries(headers).find(([key]) => key.toLowerCase() === name);
+  return match?.[1] ?? null;
+}
+
+function parseRetryAfter(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) {
+    return seconds;
+  }
+
+  const date = Date.parse(value);
+  if (Number.isFinite(date)) {
+    return Math.max(0, Math.ceil((date - Date.now()) / 1000));
+  }
+
+  return null;
+}
+
+function getStringProperty(value: unknown, key: string): string | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const property = (value as Record<string, unknown>)[key];
+  return typeof property === "string" ? property : null;
+}
+
+function getNumberProperty(value: unknown, key: string): number | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const property = (value as Record<string, unknown>)[key];
+  return typeof property === "number" && Number.isFinite(property) ? property : null;
+}
+
+function getObjectProperty(value: unknown, key: string): unknown {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const property = (value as Record<string, unknown>)[key];
+  return property && typeof property === "object" ? property : null;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
