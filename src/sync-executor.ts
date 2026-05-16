@@ -9,6 +9,8 @@ import {
 } from "./sync-plan";
 import type { DropboxFileMetadata, SyncedFileState, VaultboxSyncState } from "./types";
 
+const DEFAULT_UPLOAD_CONCURRENCY = 4;
+
 export interface SyncDropboxClient {
   upload(args: { path: string; content: ArrayBuffer; rev?: string }): Promise<DropboxFileMetadata>;
   download(path: string): Promise<ArrayBuffer>;
@@ -34,12 +36,24 @@ export class SyncExecutionError extends Error {
   }
 }
 
+class UploadRunError extends Error {
+  constructor(
+    message: string,
+    readonly applied: number,
+    readonly cause: unknown,
+  ) {
+    super(message);
+    this.name = "UploadRunError";
+  }
+}
+
 export async function executeSyncPlan(args: {
   vault: Vault;
   dropbox: SyncDropboxClient;
   rootPath: string;
   plan: SyncPlan;
   currentState: VaultboxSyncState;
+  uploadConcurrency?: number;
 }): Promise<SyncExecutionResult> {
   if (args.plan.conflicts.length > 0) {
     throw new Error(`Cannot sync while ${args.plan.conflicts.length} conflict(s) need review.`);
@@ -49,7 +63,54 @@ export async function executeSyncPlan(args: {
   const remoteFolderCache = new Set<string>();
   let applied = 0;
 
-  for (const operation of args.plan.operations) {
+  const operations = args.plan.operations;
+  for (let index = 0; index < operations.length; index += 1) {
+    const operation = operations[index];
+    if (operation.kind === "upload") {
+      const uploadOperations: Array<Extract<SyncOperation, { kind: "upload" }>> = [];
+      while (operations[index]?.kind === "upload") {
+        uploadOperations.push(operations[index] as Extract<SyncOperation, { kind: "upload" }>);
+        index += 1;
+      }
+      index -= 1;
+
+      try {
+        applied += await uploadLocalFiles({
+          vault: args.vault,
+          dropbox: args.dropbox,
+          rootPath: args.rootPath,
+          operations: uploadOperations,
+          files,
+          remoteFolderCache,
+          concurrency: args.uploadConcurrency ?? DEFAULT_UPLOAD_CONCURRENCY,
+        });
+      } catch (error) {
+        if (error instanceof UploadRunError) {
+          throw new SyncExecutionError(
+            error.message,
+            applied + error.applied,
+            {
+              files,
+              lastSyncedAt: Date.now(),
+            },
+            error.cause,
+          );
+        }
+
+        throw new SyncExecutionError(
+          error instanceof Error ? error.message : String(error),
+          applied,
+          {
+            files,
+            lastSyncedAt: Date.now(),
+          },
+          error,
+        );
+      }
+
+      continue;
+    }
+
     try {
       await applyOperation({
         vault: args.vault,
@@ -83,6 +144,56 @@ export async function executeSyncPlan(args: {
       lastSyncedAt: Date.now(),
     },
   };
+}
+
+async function uploadLocalFiles(args: {
+  vault: Vault;
+  dropbox: SyncDropboxClient;
+  rootPath: string;
+  operations: Array<Extract<SyncOperation, { kind: "upload" }>>;
+  files: Record<string, SyncedFileState>;
+  remoteFolderCache: Set<string>;
+  concurrency: number;
+}): Promise<number> {
+  await ensureRemoteParentFoldersForUploads(args.dropbox, args.rootPath, args.operations, args.remoteFolderCache);
+
+  let nextIndex = 0;
+  let applied = 0;
+  let failure: unknown = null;
+  const concurrency = Math.max(1, Math.min(args.concurrency, args.operations.length));
+
+  async function worker(): Promise<void> {
+    while (!failure) {
+      const operation = args.operations[nextIndex];
+      nextIndex += 1;
+      if (!operation) {
+        return;
+      }
+
+      try {
+        await uploadLocalFile({
+          vault: args.vault,
+          dropbox: args.dropbox,
+          rootPath: args.rootPath,
+          operation,
+          files: args.files,
+          remoteFolderCache: args.remoteFolderCache,
+        });
+        applied += 1;
+      } catch (error) {
+        failure = error;
+        return;
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+  if (failure) {
+    throw new UploadRunError(failure instanceof Error ? failure.message : String(failure), applied, failure);
+  }
+
+  return applied;
 }
 
 async function applyOperation(args: {
@@ -276,12 +387,55 @@ async function ensureParentFolders(vault: Vault, path: string): Promise<void> {
   }
 }
 
+async function ensureRemoteParentFoldersForUploads(
+  dropbox: SyncDropboxClient,
+  rootPath: string,
+  operations: Array<Extract<SyncOperation, { kind: "upload" }>>,
+  createdFolders: Set<string>,
+): Promise<void> {
+  const folders = new Map<string, string>();
+
+  for (const operation of operations) {
+    for (const folder of getRemoteParentFolders(rootPath, toDropboxPath(rootPath, operation.local.path))) {
+      folders.set(folder.toLowerCase(), folder);
+    }
+  }
+
+  const sortedFolders = [...folders.values()].sort((first, second) => {
+    const firstDepth = first.split("/").length;
+    const secondDepth = second.split("/").length;
+    return firstDepth - secondDepth || first.localeCompare(second);
+  });
+
+  for (const folder of sortedFolders) {
+    const cacheKey = folder.toLowerCase();
+    if (createdFolders.has(cacheKey)) {
+      continue;
+    }
+
+    await dropbox.createFolder(folder);
+    createdFolders.add(cacheKey);
+  }
+}
+
 async function ensureRemoteParentFolders(
   dropbox: SyncDropboxClient,
   rootPath: string,
   path: string,
   createdFolders: Set<string>,
 ): Promise<void> {
+  for (const folder of getRemoteParentFolders(rootPath, path)) {
+    const cacheKey = folder.toLowerCase();
+    if (createdFolders.has(cacheKey)) {
+      continue;
+    }
+
+    await dropbox.createFolder(folder);
+    createdFolders.add(cacheKey);
+  }
+}
+
+function getRemoteParentFolders(rootPath: string, path: string): string[] {
   const root = normalizeDropboxPath(rootPath);
   const fullPath = normalizeDropboxPath(path);
   const rootPrefix = root ? `${root}/` : "/";
@@ -290,17 +444,14 @@ async function ensureRemoteParentFolders(
     : fullPath.replace(/^\/+/, "");
   const parts = relativePath.split("/").filter(Boolean).slice(0, -1);
   let current = root;
+  const folders: string[] = [];
 
   for (const part of parts) {
     current = normalizeDropboxPath(`${current}/${part}`);
-    const cacheKey = current.toLowerCase();
-    if (createdFolders.has(cacheKey)) {
-      continue;
-    }
-
-    await dropbox.createFolder(current);
-    createdFolders.add(cacheKey);
+    folders.push(current);
   }
+
+  return folders;
 }
 
 async function assertRemoteMissing(dropbox: SyncDropboxClient, dropboxPath: string, localPath: string): Promise<void> {

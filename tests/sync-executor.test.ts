@@ -74,6 +74,36 @@ describe("sync executor", () => {
     expect(dropbox.createFolder).toHaveBeenCalledWith("/Vault/Notes");
   });
 
+  it("uploads local files with bounded concurrency", async () => {
+    const vault = new FakeVault({
+      "A.md": "a",
+      "B.md": "b",
+      "C.md": "c",
+      "D.md": "d",
+      "E.md": "e",
+    });
+    const dropbox = new FakeDropbox({ uploadDelayMs: 5 });
+
+    const result = await executeSyncPlan({
+      vault: vault.asVault(),
+      dropbox,
+      rootPath: "/Vault",
+      currentState: emptyState(),
+      uploadConcurrency: 2,
+      plan: plan([
+        { kind: "upload", path: "A.md", local: localFile("A.md", await hash("a")) },
+        { kind: "upload", path: "B.md", local: localFile("B.md", await hash("b")) },
+        { kind: "upload", path: "C.md", local: localFile("C.md", await hash("c")) },
+        { kind: "upload", path: "D.md", local: localFile("D.md", await hash("d")) },
+        { kind: "upload", path: "E.md", local: localFile("E.md", await hash("e")) },
+      ]),
+    });
+
+    expect(result.applied).toBe(5);
+    expect(dropbox.maxUploadInFlight).toBe(2);
+    expect(dropbox.upload).toHaveBeenCalledTimes(5);
+  });
+
   it("stops upload when the local file changed after planning", async () => {
     const plannedHash = await hash("planned");
     const vault = new FakeVault({ "A.md": "changed" });
@@ -284,7 +314,23 @@ describe("sync executor", () => {
 });
 
 class FakeDropbox implements SyncDropboxClient {
-  upload = vi.fn(async () => this.options.uploadResult ?? remoteFile("/Vault/Uploaded.md", "", "rev"));
+  activeUploads = 0;
+  maxUploadInFlight = 0;
+
+  upload = vi.fn(async (args: { path: string; content: ArrayBuffer; rev?: string }) => {
+    this.activeUploads += 1;
+    this.maxUploadInFlight = Math.max(this.maxUploadInFlight, this.activeUploads);
+
+    try {
+      if (this.options.uploadDelayMs) {
+        await delay(this.options.uploadDelayMs);
+      }
+
+      return this.options.uploadResult ?? remoteFile(args.path, "", "rev");
+    } finally {
+      this.activeUploads -= 1;
+    }
+  });
   download = vi.fn(async () => this.options.downloadContent ?? bytes(""));
   delete = vi.fn(async () => remoteFile("/Vault/Deleted.md", "", "rev"));
   createFolder = vi.fn(async () => undefined);
@@ -297,6 +343,7 @@ class FakeDropbox implements SyncDropboxClient {
 
   constructor(private readonly options: {
     uploadResult?: DropboxFileMetadata;
+    uploadDelayMs?: number;
     downloadContent?: ArrayBuffer;
     metadata?: DropboxFileMetadata;
     metadataError?: Error;
@@ -449,4 +496,8 @@ async function hash(value: string): Promise<string> {
 function bytes(value: string): ArrayBuffer {
   const encoded = new TextEncoder().encode(value);
   return encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
