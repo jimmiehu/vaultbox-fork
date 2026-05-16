@@ -10,6 +10,14 @@ npm test
 npm run build
 ```
 
+Dropbox API E2E tests require `.env.e2e`:
+
+```bash
+cp env.e2e.sample .env.e2e
+# Fill in VAULTBOX_E2E_DROPBOX_REFRESH_TOKEN.
+npm run test:e2e
+```
+
 Install into a local test vault:
 
 ```bash

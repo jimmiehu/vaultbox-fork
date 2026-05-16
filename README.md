@@ -64,6 +64,16 @@ Run tests:
 npm test
 ```
 
+Run Dropbox API E2E tests:
+
+```bash
+cp env.e2e.sample .env.e2e
+# Fill in VAULTBOX_E2E_DROPBOX_REFRESH_TOKEN.
+npm run test:e2e
+```
+
+The E2E suite creates a timestamped folder under `VAULTBOX_E2E_DROPBOX_TEST_ROOT`, uploads/downloads/updates/deletes files, verifies stale `rev` conflict behavior, and cleans up by default.
+
 Build:
 
 ```bash
