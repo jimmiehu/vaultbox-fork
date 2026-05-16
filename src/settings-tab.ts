@@ -299,6 +299,10 @@ class DropboxFolderPickerModal extends Modal {
       void this.loadFolders();
     });
 
+    actions.createEl("button", { text: "New folder" }).addEventListener("click", async () => {
+      await this.createFolder();
+    });
+
     const chooseButton = actions.createEl("button", {
       cls: "mod-cta",
       text: "Choose this folder",
@@ -346,6 +350,31 @@ class DropboxFolderPickerModal extends Modal {
         this.render();
         void this.loadFolders();
       });
+    }
+  }
+
+  private async createFolder(): Promise<void> {
+    const name = window.prompt("New Dropbox folder name");
+    const folderName = name?.trim();
+
+    if (!folderName) {
+      return;
+    }
+
+    if (folderName.includes("/") || folderName.includes("\\")) {
+      this.setStatus("Folder names cannot contain slashes.");
+      return;
+    }
+
+    const folderPath = `${this.currentPath}/${folderName}`.replace(/\/+/g, "/");
+    try {
+      this.setStatus("Creating folder...");
+      await this.plugin.createDropboxClient().createFolder(folderPath);
+      this.currentPath = folderPath;
+      this.render();
+      await this.loadFolders();
+    } catch (error) {
+      this.setStatus(error instanceof Error ? error.message : String(error));
     }
   }
 

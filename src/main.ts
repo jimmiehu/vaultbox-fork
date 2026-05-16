@@ -41,9 +41,10 @@ export default class VaultboxPlugin extends Plugin {
     this.debugLog.load((await this.loadPluginData()).debugLog);
 
     addIcon("vaultbox-logo", VAULTBOX_ICON_PATHS);
-    this.addRibbonIcon("vaultbox-logo", "Sync with Vaultbox", () => {
+    const ribbonIconEl = this.addRibbonIcon("vaultbox-logo", "Sync with Vaultbox", () => {
       void this.syncNow();
     });
+    ribbonIconEl.parentElement?.appendChild(ribbonIconEl);
 
     this.addCommand({
       id: "connect-dropbox",
