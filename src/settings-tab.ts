@@ -1,4 +1,5 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { VAULTBOX_ICON } from "./icons";
 import type VaultboxPlugin from "./main";
 
 export class VaultboxSettingTab extends PluginSettingTab {
@@ -15,19 +16,6 @@ export class VaultboxSettingTab extends PluginSettingTab {
     this.addHeader(containerEl);
     this.statusEl = containerEl.createDiv({ cls: "vaultbox-status" });
     this.setStatus(this.plugin.isConnected() ? "Dropbox connected." : "Dropbox is not connected.");
-
-    new Setting(containerEl)
-      .setName("Dropbox app key")
-      .setDesc("Use the public app key from a Dropbox API app configured for Full Dropbox access and PKCE.")
-      .addText((text) => {
-        text
-          .setPlaceholder("Dropbox app key")
-          .setValue(this.plugin.settings.dropboxAppKey)
-          .onChange(async (value) => {
-            this.plugin.settings.dropboxAppKey = value.trim();
-            await this.plugin.saveSettings();
-          });
-      });
 
     new Setting(containerEl)
       .setName("Connect Dropbox")
@@ -119,7 +107,7 @@ export class VaultboxSettingTab extends PluginSettingTab {
   private addHeader(containerEl: HTMLElement): void {
     const header = containerEl.createDiv({ cls: "vaultbox-settings-header" });
     const icon = header.createDiv({ cls: "vaultbox-settings-logo" });
-    icon.innerHTML = "<svg viewBox='0 0 24 24'><path d='M4 7.5 12 3l8 4.5-8 4.5-8-4.5Z' fill='none' stroke='currentColor' stroke-width='1.8'/><path d='m4 11.5 8 4.5 8-4.5M4 15.5l8 4.5 8-4.5' fill='none' stroke='currentColor' stroke-linecap='round' stroke-width='1.8'/></svg>";
+    icon.innerHTML = VAULTBOX_ICON;
     const text = header.createDiv();
     text.createEl("h2", { text: "Vaultbox" });
     text.createDiv({

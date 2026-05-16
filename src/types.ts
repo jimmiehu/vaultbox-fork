@@ -1,5 +1,4 @@
 export interface VaultboxSettings {
-  dropboxAppKey: string;
   accessToken: string;
   accessTokenExpiresAt: number;
   refreshToken: string;
@@ -14,7 +13,6 @@ export interface VaultboxSettings {
 }
 
 export const DEFAULT_SETTINGS: VaultboxSettings = {
-  dropboxAppKey: "k671hqjipp2sdpl",
   accessToken: "",
   accessTokenExpiresAt: 0,
   refreshToken: "",

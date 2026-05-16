@@ -4,6 +4,7 @@ import {
   exchangeDropboxAuthCode,
   refreshDropboxAccessToken,
 } from "./dropbox-auth";
+import { DROPBOX_APP_KEY } from "./constants";
 import { DropboxClient, normalizeDropboxPath } from "./dropbox";
 import { VAULTBOX_ICON } from "./icons";
 import { VaultboxSettingTab } from "./settings-tab";
@@ -66,9 +67,11 @@ export default class VaultboxPlugin extends Plugin {
 
   async loadSettings(): Promise<void> {
     const data = await this.loadData() as VaultboxPluginData | null;
+    const savedSettings = data?.settings as (Partial<VaultboxSettings> & { dropboxAppKey?: string }) | undefined;
+    const { dropboxAppKey: _dropboxAppKey, ...settings } = savedSettings ?? {};
     this.settings = {
       ...DEFAULT_SETTINGS,
-      ...(data?.settings ?? {}),
+      ...settings,
     };
     this.pendingAuthCodeVerifier = data?.pendingAuthCodeVerifier ?? "";
     this.syncState = data?.syncState ?? { files: {}, lastSyncedAt: 0 };
@@ -87,12 +90,7 @@ export default class VaultboxPlugin extends Plugin {
   }
 
   async startDropboxAuth(): Promise<void> {
-    if (!this.settings.dropboxAppKey.trim()) {
-      new Notice("Add a Dropbox app key first.");
-      return;
-    }
-
-    const session = await createDropboxAuthSession(this.settings.dropboxAppKey.trim());
+    const session = await createDropboxAuthSession(DROPBOX_APP_KEY);
     this.pendingAuthCodeVerifier = session.codeVerifier;
     await this.saveSettings();
     window.open(session.authUrl);
@@ -105,7 +103,7 @@ export default class VaultboxPlugin extends Plugin {
     }
 
     const tokens = await exchangeDropboxAuthCode({
-      appKey: this.settings.dropboxAppKey.trim(),
+      appKey: DROPBOX_APP_KEY,
       code,
       codeVerifier: this.pendingAuthCodeVerifier,
     });
@@ -128,7 +126,7 @@ export default class VaultboxPlugin extends Plugin {
     }
 
     const refreshed = await refreshDropboxAccessToken({
-      appKey: this.settings.dropboxAppKey.trim(),
+      appKey: DROPBOX_APP_KEY,
       refreshToken: this.settings.refreshToken,
     });
     this.settings.accessToken = refreshed.accessToken;

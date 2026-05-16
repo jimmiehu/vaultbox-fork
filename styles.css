@@ -9,6 +9,15 @@
   width: 42px;
   height: 42px;
   border-radius: 8px;
+  color: var(--interactive-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vaultbox-settings-logo svg {
+  width: 42px;
+  height: 42px;
 }
 
 .vaultbox-settings-tagline,
