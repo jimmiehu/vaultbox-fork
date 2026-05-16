@@ -20,6 +20,8 @@ This repository is the first scaffold. It includes:
 
 The executor is deliberately conservative: it detects conflicts before applying a plan, revalidates files before each write/delete, and stores partial progress if a later operation fails.
 
+Initial push syncs to an empty Dropbox folder can take a few minutes for larger vaults. Vaultbox intentionally favors consistency over raw throughput: it plans first, rechecks each local file before upload, uses guarded Dropbox writes, handles Dropbox write throttling with backoff, and only records files as synced after Dropbox confirms them. That is slower than a bulk "fire and forget" upload, but it reduces the chance of turning a temporary network or API issue into a damaged vault.
+
 If a first sync is interrupted or the selected Dropbox folder is manually cleared, use **Reset sync tracking** in settings. It clears Vaultbox metadata without deleting local files or Dropbox files, so the next sync starts from the current local and Dropbox contents.
 
 ## Product Direction
