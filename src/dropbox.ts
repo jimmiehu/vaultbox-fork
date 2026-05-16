@@ -16,12 +16,12 @@ export interface DropboxTokenProvider {
 export class DropboxClient {
   constructor(private readonly tokenProvider: DropboxTokenProvider) {}
 
-  async listFolder(path: string): Promise<DropboxListResult> {
+  async listFolder(path: string, options: { recursive?: boolean } = {}): Promise<DropboxListResult> {
     const result = await this.rpc<{ entries: unknown[]; cursor: string; has_more: boolean }>(
       "/files/list_folder",
       {
         path,
-        recursive: false,
+        recursive: options.recursive ?? false,
         include_deleted: false,
         include_has_explicit_shared_members: false,
         include_mounted_folders: true,
@@ -43,7 +43,7 @@ export class DropboxClient {
 
   async listAllFiles(path: string): Promise<Map<string, DropboxFileMetadata>> {
     const files = new Map<string, DropboxFileMetadata>();
-    let result = await this.listFolder(path);
+    let result = await this.listFolder(path, { recursive: true });
 
     while (true) {
       for (const entry of result.entries) {

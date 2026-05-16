@@ -98,6 +98,22 @@ export class VaultboxSettingTab extends PluginSettingTab {
       });
 
     this.addSyncSettings(containerEl);
+
+    new Setting(containerEl)
+      .setName("Simulate sync")
+      .setDesc("Builds the full sync plan and reports what would change without writing to Dropbox or your vault.")
+      .addButton((button) => {
+        button
+          .setButtonText("Simulate")
+          .onClick(async () => {
+            try {
+              this.setStatus("Building sync plan...");
+              this.setStatus(await this.plugin.simulateSync());
+            } catch (error) {
+              this.setStatus(error instanceof Error ? error.message : String(error));
+            }
+          });
+      });
   }
 
   private addHeader(containerEl: HTMLElement): void {

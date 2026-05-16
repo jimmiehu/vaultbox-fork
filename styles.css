@@ -18,4 +18,5 @@
 
 .vaultbox-status {
   margin-bottom: 12px;
+  white-space: pre-wrap;
 }

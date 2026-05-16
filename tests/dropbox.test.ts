@@ -107,6 +107,30 @@ describe("DropboxClient", () => {
     expect(arg.strict_conflict).toBe(true);
   });
 
+  it("lists all files recursively for sync snapshots", async () => {
+    const request = vi.fn(async () => ({
+      status: 200,
+      text: "",
+      json: {
+        entries: [],
+        cursor: "cursor",
+        has_more: false,
+      },
+      headers: {},
+    }));
+    setRequestUrlMock(request);
+
+    const client = new DropboxClient({ getAccessToken: async () => "token" });
+    await client.listAllFiles("/Vault");
+
+    const firstCall = request.mock.calls[0] as Array<{ body?: string }> | undefined;
+    expect(firstCall).toBeDefined();
+    expect(JSON.parse(String(firstCall?.[0].body))).toMatchObject({
+      path: "/Vault",
+      recursive: true,
+    });
+  });
+
   it("normalizes upload metadata when Dropbox omits the file tag", async () => {
     setRequestUrlMock(async () => ({
       status: 200,

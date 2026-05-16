@@ -14,9 +14,10 @@ This repository is the first scaffold. It includes:
 - Dropbox OAuth code flow with PKCE and offline refresh tokens.
 - Full Dropbox folder-path configuration.
 - A starter Dropbox API client for listing, validating, uploading, downloading, and deleting files.
-- Tests around the auth and Dropbox API assumptions.
+- A plan-first sync planner and simulation button that compare local vault files with Dropbox without mutating either side.
+- Tests around auth, Dropbox API assumptions, and local/remote sync planning conflicts.
 
-The sync engine is not wired yet. The intended implementation is the same conservative shape as Octosync: plan first, simulate, detect conflicts, and stop rather than guessing.
+The mutating sync executor is not wired yet. The planner is deliberately conservative: it detects conflicts and reports planned uploads, downloads, and deletes before anything is allowed to write to Dropbox or the vault.
 
 ## Product Direction
 
@@ -26,8 +27,8 @@ Planned behavior:
 
 - Pick or enter an existing Dropbox folder.
 - Sync manually or automatically.
-- Simulate planned changes before applying them.
-- Detect local/remote conflicts and ask for a decision.
+- Simulate planned changes before applying them. Initial simulation support is in place.
+- Detect local/remote conflicts and ask for a decision. Initial conflict planning support is in place.
 - Use Dropbox `rev` values for guarded writes.
 - Use Dropbox `content_hash` for remote change detection.
 - Treat Dropbox paths as case-insensitive and detect case conflicts.

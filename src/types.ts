@@ -71,3 +71,16 @@ export interface DropboxListResult {
   cursor: string;
   hasMore: boolean;
 }
+
+export interface SyncedFileState {
+  path: string;
+  pathLower: string;
+  localContentHash: string;
+  remoteContentHash: string;
+  remoteRev: string;
+}
+
+export interface VaultboxSyncState {
+  files: Record<string, SyncedFileState>;
+  lastSyncedAt: number;
+}

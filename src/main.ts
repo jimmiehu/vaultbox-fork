@@ -7,16 +7,25 @@ import {
 import { DropboxClient, normalizeDropboxPath } from "./dropbox";
 import { VAULTBOX_ICON } from "./icons";
 import { VaultboxSettingTab } from "./settings-tab";
-import { DEFAULT_SETTINGS, type VaultboxSettings } from "./types";
+import {
+  createRemoteFileSnapshot,
+  createSyncPlan,
+  formatSyncPlan,
+  scanLocalVault,
+  type SyncPlan,
+} from "./sync-plan";
+import { DEFAULT_SETTINGS, type VaultboxSettings, type VaultboxSyncState } from "./types";
 
 interface VaultboxPluginData {
   settings?: Partial<VaultboxSettings>;
   pendingAuthCodeVerifier?: string;
+  syncState?: VaultboxSyncState;
 }
 
 export default class VaultboxPlugin extends Plugin {
   settings: VaultboxSettings = { ...DEFAULT_SETTINGS };
   pendingAuthCodeVerifier = "";
+  syncState: VaultboxSyncState = { files: {}, lastSyncedAt: 0 };
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -60,12 +69,14 @@ export default class VaultboxPlugin extends Plugin {
       ...(data?.settings ?? {}),
     };
     this.pendingAuthCodeVerifier = data?.pendingAuthCodeVerifier ?? "";
+    this.syncState = data?.syncState ?? { files: {}, lastSyncedAt: 0 };
   }
 
   async saveSettings(): Promise<void> {
     await this.saveData({
       settings: this.settings,
       pendingAuthCodeVerifier: this.pendingAuthCodeVerifier,
+      syncState: this.syncState,
     } satisfies VaultboxPluginData);
   }
 
@@ -149,6 +160,37 @@ export default class VaultboxPlugin extends Plugin {
   }
 
   async syncNow(): Promise<void> {
-    new Notice("Vaultbox sync planning is scaffolded next: auth and Dropbox folder access are in place.");
+    try {
+      const plan = await this.buildSyncPlan();
+      new Notice(formatSyncPlan(plan, "Sync plan"));
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async simulateSync(): Promise<string> {
+    const plan = await this.buildSyncPlan();
+    return formatSyncPlan(plan);
+  }
+
+  async buildSyncPlan(): Promise<SyncPlan> {
+    if (!this.isConnected()) {
+      throw new Error("Connect Dropbox before syncing.");
+    }
+
+    const folderPath = normalizeDropboxPath(this.settings.selectedFolderPath);
+    this.settings.selectedFolderPath = folderPath;
+    await this.saveSettings();
+
+    const [localFiles, remoteFiles] = await Promise.all([
+      scanLocalVault(this.app.vault),
+      this.createDropboxClient().listAllFiles(folderPath),
+    ]);
+
+    return createSyncPlan({
+      localFiles,
+      remoteFiles: createRemoteFileSnapshot(remoteFiles, folderPath),
+      state: this.syncState,
+    });
   }
 }
