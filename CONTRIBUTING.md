@@ -18,6 +18,8 @@ npm run local-install -- "/path/to/Test Vault"
 
 ## Dropbox Testing
 
+The default Dropbox app key belongs to **Vaultbox for Obsidian** and is safe to commit because app keys are public. Never commit a Dropbox app secret.
+
 Use a throwaway Dropbox account or a disposable folder. Do not test sync behavior against your main vault until conflict, delete, and failure paths are covered.
 
 ## Sync Safety

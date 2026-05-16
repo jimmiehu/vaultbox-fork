@@ -33,7 +33,15 @@ Planned behavior:
 
 ## Dropbox App Setup
 
-Create a Dropbox API app with:
+Vaultbox uses the public Dropbox app key for **Vaultbox for Obsidian**:
+
+```text
+k671hqjipp2sdpl
+```
+
+The app secret must never be stored in the plugin or committed to the repository.
+
+If you are creating your own Dropbox API app for development, configure it with:
 
 - Scoped access.
 - Full Dropbox access.
