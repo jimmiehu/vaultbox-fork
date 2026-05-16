@@ -1,5 +1,7 @@
 # Vaultbox
 
+![Vaultbox logo](logo.png)
+
 Vaultbox is an Obsidian plugin for syncing a vault directly with a selected Dropbox folder on desktop and mobile.
 
 The goal is to support people who already keep an Obsidian vault in Dropbox on a desktop machine, but cannot use that same Dropbox folder from Obsidian mobile. Vaultbox will talk to the Dropbox API from inside Obsidian so phones and tablets can sync against the same Dropbox folder without relying on the Dropbox desktop client or local Git.
