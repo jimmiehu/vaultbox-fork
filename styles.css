@@ -1,0 +1,21 @@
+.vaultbox-settings-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.vaultbox-settings-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+}
+
+.vaultbox-settings-tagline,
+.vaultbox-status {
+  color: var(--text-muted);
+}
+
+.vaultbox-status {
+  margin-bottom: 12px;
+}
