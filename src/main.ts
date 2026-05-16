@@ -7,7 +7,7 @@ import {
 import { DROPBOX_APP_KEY } from "./constants";
 import { DebugLog, type DebugLogEntry } from "./debug-log";
 import { DropboxClient, normalizeDropboxPath } from "./dropbox";
-import { VAULTBOX_ICON } from "./icons";
+import { VAULTBOX_ICON_PATHS } from "./icons";
 import { VaultboxSettingTab } from "./settings-tab";
 import { executeSyncPlan, SyncExecutionError } from "./sync-executor";
 import {
@@ -40,7 +40,7 @@ export default class VaultboxPlugin extends Plugin {
     });
     this.debugLog.load((await this.loadPluginData()).debugLog);
 
-    addIcon("vaultbox-logo", VAULTBOX_ICON);
+    addIcon("vaultbox-logo", VAULTBOX_ICON_PATHS);
     this.addRibbonIcon("vaultbox-logo", "Sync with Vaultbox", () => {
       void this.syncNow();
     });
