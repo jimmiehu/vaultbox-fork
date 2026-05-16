@@ -33,6 +33,8 @@ describe("sync executor", () => {
       content: expect.any(ArrayBuffer),
       rev: "rev-old",
     });
+    expect(dropbox.createFolder).toHaveBeenCalledWith("/Vault");
+    expect(dropbox.createFolder).toHaveBeenCalledWith("/Vault/Notes");
     expect(result.applied).toBe(1);
     expect(result.state.files["notes/a.md"]).toMatchObject({
       localContentHash: localHash,
@@ -254,6 +256,7 @@ class FakeDropbox implements SyncDropboxClient {
   upload = vi.fn(async () => this.options.uploadResult ?? remoteFile("/Vault/Uploaded.md", "", "rev"));
   download = vi.fn(async () => this.options.downloadContent ?? bytes(""));
   delete = vi.fn(async () => remoteFile("/Vault/Deleted.md", "", "rev"));
+  createFolder = vi.fn(async () => undefined);
   getMetadata = vi.fn(async () => {
     if (this.options.metadataError) {
       throw this.options.metadataError;

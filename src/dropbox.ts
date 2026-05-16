@@ -60,6 +60,24 @@ export class DropboxClient {
     }
   }
 
+  async createFolder(path: string): Promise<void> {
+    try {
+      await this.rpc<unknown>("/files/create_folder_v2", {
+        path,
+        autorename: false,
+      });
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("conflict")) {
+        throw error;
+      }
+
+      const metadata = await this.getMetadata(path);
+      if (metadata.tag !== "folder") {
+        throw error;
+      }
+    }
+  }
+
   async download(path: string): Promise<ArrayBuffer> {
     return this.content<ArrayBuffer>("/files/download", { path }, undefined, "arrayBuffer");
   }

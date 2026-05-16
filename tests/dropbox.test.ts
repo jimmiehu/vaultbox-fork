@@ -131,6 +131,37 @@ describe("DropboxClient", () => {
     });
   });
 
+  it("creates Dropbox folders and tolerates existing folder conflicts", async () => {
+    const request = vi.fn(async (args) => {
+      if (String(args.url).endsWith("/files/create_folder_v2")) {
+        return {
+          status: 409,
+          text: '{"error_summary":"path/conflict/folder/"}',
+          json: {},
+          headers: {},
+        };
+      }
+
+      return {
+        status: 200,
+        text: "",
+        json: {
+          ".tag": "folder",
+          name: "Notes",
+          path_display: "/Notes",
+          path_lower: "/notes",
+          id: "id:folder",
+        },
+        headers: {},
+      };
+    });
+    setRequestUrlMock(request);
+
+    const client = new DropboxClient({ getAccessToken: async () => "token" });
+    await expect(client.createFolder("/Notes")).resolves.toBeUndefined();
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
   it("normalizes upload metadata when Dropbox omits the file tag", async () => {
     setRequestUrlMock(async () => ({
       status: 200,

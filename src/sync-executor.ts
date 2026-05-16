@@ -14,6 +14,7 @@ export interface SyncDropboxClient {
   download(path: string): Promise<ArrayBuffer>;
   delete(path: string): Promise<unknown>;
   getMetadata(path: string): Promise<DropboxFileMetadata | { tag: "folder" }>;
+  createFolder(path: string): Promise<void>;
 }
 
 export interface SyncExecutionResult {
@@ -132,8 +133,10 @@ async function uploadLocalFile(args: {
     throw new Error(`Local file changed before upload: ${args.operation.local.path}`);
   }
 
+  const remotePath = toDropboxPath(args.rootPath, args.operation.local.path);
+  await ensureRemoteParentFolders(args.dropbox, remotePath);
   const uploaded = await args.dropbox.upload({
-    path: toDropboxPath(args.rootPath, args.operation.local.path),
+    path: remotePath,
     content: current.content,
     rev: args.operation.previous?.remoteRev,
   });
@@ -266,6 +269,16 @@ async function ensureParentFolders(vault: Vault, path: string): Promise<void> {
     if (!vault.getFolderByPath(current)) {
       await vault.createFolder(current);
     }
+  }
+}
+
+async function ensureRemoteParentFolders(dropbox: SyncDropboxClient, path: string): Promise<void> {
+  const parts = normalizeDropboxPath(path).split("/").filter(Boolean).slice(0, -1);
+  let current = "";
+
+  for (const part of parts) {
+    current = normalizeDropboxPath(`${current}/${part}`);
+    await dropbox.createFolder(current);
   }
 }
 

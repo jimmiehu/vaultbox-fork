@@ -75,7 +75,7 @@ npm run dropbox:token
 npm run test:e2e
 ```
 
-The E2E suite creates a timestamped folder under `VAULTBOX_E2E_DROPBOX_TEST_ROOT`, uploads/downloads/updates/deletes files, verifies stale `rev` conflict behavior, and cleans up by default.
+The E2E suite creates timestamped folders under `VAULTBOX_E2E_DROPBOX_TEST_ROOT`, uploads/downloads/updates/deletes files, verifies stale `rev` conflict behavior, runs the real planner/executor against live Dropbox data, and checks the sync conflict modes before cleaning up by default.
 
 The token helper prints a Dropbox authorization URL, asks you to paste the authorization code shown by Dropbox, and writes the resulting refresh token to `.env.e2e`. Treat `.env.e2e` as secret local state.
 
