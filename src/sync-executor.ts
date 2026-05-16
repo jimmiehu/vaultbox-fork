@@ -46,6 +46,7 @@ export async function executeSyncPlan(args: {
   }
 
   const files = { ...args.currentState.files };
+  const remoteFolderCache = new Set<string>();
   let applied = 0;
 
   for (const operation of args.plan.operations) {
@@ -56,6 +57,7 @@ export async function executeSyncPlan(args: {
         rootPath: args.rootPath,
         operation,
         files,
+        remoteFolderCache,
       });
     } catch (error) {
       throw new SyncExecutionError(
@@ -89,6 +91,7 @@ async function applyOperation(args: {
   rootPath: string;
   operation: SyncOperation;
   files: Record<string, SyncedFileState>;
+  remoteFolderCache: Set<string>;
 }): Promise<void> {
   const operation = args.operation;
   switch (operation.kind) {
@@ -127,6 +130,7 @@ async function uploadLocalFile(args: {
   rootPath: string;
   operation: Extract<SyncOperation, { kind: "upload" }>;
   files: Record<string, SyncedFileState>;
+  remoteFolderCache: Set<string>;
 }): Promise<void> {
   const current = await readLocalSnapshot(args.vault, args.operation.local.path);
   if (!current || current.snapshot.contentHash !== args.operation.local.contentHash) {
@@ -134,7 +138,7 @@ async function uploadLocalFile(args: {
   }
 
   const remotePath = toDropboxPath(args.rootPath, args.operation.local.path);
-  await ensureRemoteParentFolders(args.dropbox, remotePath);
+  await ensureRemoteParentFolders(args.dropbox, args.rootPath, remotePath, args.remoteFolderCache);
   const uploaded = await args.dropbox.upload({
     path: remotePath,
     content: current.content,
@@ -272,13 +276,30 @@ async function ensureParentFolders(vault: Vault, path: string): Promise<void> {
   }
 }
 
-async function ensureRemoteParentFolders(dropbox: SyncDropboxClient, path: string): Promise<void> {
-  const parts = normalizeDropboxPath(path).split("/").filter(Boolean).slice(0, -1);
-  let current = "";
+async function ensureRemoteParentFolders(
+  dropbox: SyncDropboxClient,
+  rootPath: string,
+  path: string,
+  createdFolders: Set<string>,
+): Promise<void> {
+  const root = normalizeDropboxPath(rootPath);
+  const fullPath = normalizeDropboxPath(path);
+  const rootPrefix = root ? `${root}/` : "/";
+  const relativePath = fullPath.toLowerCase().startsWith(rootPrefix.toLowerCase())
+    ? fullPath.slice(rootPrefix.length)
+    : fullPath.replace(/^\/+/, "");
+  const parts = relativePath.split("/").filter(Boolean).slice(0, -1);
+  let current = root;
 
   for (const part of parts) {
     current = normalizeDropboxPath(`${current}/${part}`);
+    const cacheKey = current.toLowerCase();
+    if (createdFolders.has(cacheKey)) {
+      continue;
+    }
+
     await dropbox.createFolder(current);
+    createdFolders.add(cacheKey);
   }
 }
 

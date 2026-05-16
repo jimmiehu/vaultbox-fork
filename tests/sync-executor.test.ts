@@ -33,7 +33,6 @@ describe("sync executor", () => {
       content: expect.any(ArrayBuffer),
       rev: "rev-old",
     });
-    expect(dropbox.createFolder).toHaveBeenCalledWith("/Vault");
     expect(dropbox.createFolder).toHaveBeenCalledWith("/Vault/Notes");
     expect(result.applied).toBe(1);
     expect(result.state.files["notes/a.md"]).toMatchObject({
@@ -41,6 +40,38 @@ describe("sync executor", () => {
       remoteContentHash: remoteHash,
       remoteRev: "rev-new",
     });
+  });
+
+  it("creates each remote parent folder only once per sync", async () => {
+    const firstHash = await hash("first");
+    const secondHash = await hash("second");
+    const vault = new FakeVault({
+      "Notes/First.md": "first",
+      "Notes/Second.md": "second",
+    });
+    const dropbox = new FakeDropbox({});
+
+    await executeSyncPlan({
+      vault: vault.asVault(),
+      dropbox,
+      rootPath: "/Vault",
+      currentState: emptyState(),
+      plan: plan([
+        {
+          kind: "upload",
+          path: "Notes/First.md",
+          local: localFile("Notes/First.md", firstHash),
+        },
+        {
+          kind: "upload",
+          path: "Notes/Second.md",
+          local: localFile("Notes/Second.md", secondHash),
+        },
+      ]),
+    });
+
+    expect(dropbox.createFolder).toHaveBeenCalledTimes(1);
+    expect(dropbox.createFolder).toHaveBeenCalledWith("/Vault/Notes");
   });
 
   it("stops upload when the local file changed after planning", async () => {
