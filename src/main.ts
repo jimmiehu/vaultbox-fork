@@ -7,10 +7,12 @@ import {
 import { DropboxClient, normalizeDropboxPath } from "./dropbox";
 import { VAULTBOX_ICON } from "./icons";
 import { VaultboxSettingTab } from "./settings-tab";
+import { executeSyncPlan, SyncExecutionError } from "./sync-executor";
 import {
   createRemoteFileSnapshot,
   createSyncPlan,
   formatSyncPlan,
+  isPlanEmpty,
   scanLocalVault,
   type SyncPlan,
 } from "./sync-plan";
@@ -162,8 +164,39 @@ export default class VaultboxPlugin extends Plugin {
   async syncNow(): Promise<void> {
     try {
       const plan = await this.buildSyncPlan();
-      new Notice(formatSyncPlan(plan, "Sync plan"));
+      if (plan.conflicts.length > 0) {
+        new Notice(formatSyncPlan(plan, "Sync blocked"));
+        return;
+      }
+
+      if (isPlanEmpty(plan)) {
+        new Notice("No sync required. Everything is up to date.");
+        return;
+      }
+
+      if (this.settings.syncMode === "manual" && this.settings.confirmBeforeManualSync) {
+        const confirmed = window.confirm(`${formatSyncPlan(plan, "Confirm sync")}\n\nApply these changes now?`);
+        if (!confirmed) {
+          new Notice("Sync cancelled.");
+          return;
+        }
+      }
+
+      const result = await executeSyncPlan({
+        vault: this.app.vault,
+        dropbox: this.createDropboxClient(),
+        rootPath: normalizeDropboxPath(this.settings.selectedFolderPath),
+        plan,
+        currentState: this.syncState,
+      });
+      this.syncState = result.state;
+      await this.saveSettings();
+      new Notice(`Sync complete. Applied ${result.applied} change${result.applied === 1 ? "" : "s"}.`);
     } catch (error) {
+      if (error instanceof SyncExecutionError) {
+        this.syncState = error.partialState;
+        await this.saveSettings();
+      }
       new Notice(error instanceof Error ? error.message : String(error));
     }
   }

@@ -15,9 +15,10 @@ This repository is the first scaffold. It includes:
 - Full Dropbox folder-path configuration.
 - A starter Dropbox API client for listing, validating, uploading, downloading, and deleting files.
 - A plan-first sync planner and simulation button that compare local vault files with Dropbox without mutating either side.
+- A guarded sync executor that applies conflict-free plans with local hash and Dropbox `rev` rechecks.
 - Tests around auth, Dropbox API assumptions, and local/remote sync planning conflicts.
 
-The mutating sync executor is not wired yet. The planner is deliberately conservative: it detects conflicts and reports planned uploads, downloads, and deletes before anything is allowed to write to Dropbox or the vault.
+The executor is deliberately conservative: it detects conflicts before applying a plan, revalidates files before each write/delete, and stores partial progress if a later operation fails.
 
 ## Product Direction
 
