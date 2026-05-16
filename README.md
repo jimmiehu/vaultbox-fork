@@ -64,6 +64,10 @@ Vaultbox is free to use. If it saves you time and you want to support ongoing de
 
 Support is optional and does not unlock features.
 
+## Installation
+
+The easiest installation path is the [Obsidian Community Plugin directory](https://community.obsidian.md/plugins/vaultbox). Search for **Vaultbox**, install it, then enable it from Community plugins.
+
 ## Manual Installation
 
 Build or download the plugin files, then place them in:
