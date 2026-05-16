@@ -1,7 +1,7 @@
 {
   "name": "vaultbox",
-  "version": "0.1.0",
-  "description": "An Obsidian plugin for syncing a vault directly with a selected Dropbox folder.",
+  "version": "1.0.0",
+  "description": "Sync your vault directly with a selected Dropbox folder on desktop and mobile.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs --watch",
@@ -9,6 +9,7 @@
     "test": "vitest run",
     "test:e2e": "node e2e/dropbox-e2e.mjs && vitest run --config vitest.e2e.config.ts",
     "dropbox:token": "node scripts/dropbox-refresh-token.mjs",
+    "screenshot:settings": "npm run build && node e2e/settings-screenshot.mjs",
     "local-install": "npm run build && node local-install.mjs",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
@@ -24,6 +25,7 @@
     "@types/node": "^20.11.30",
     "esbuild": "^0.28.0",
     "obsidian": "^1.5.12",
+    "playwright-core": "^1.60.0",
     "tslib": "^2.6.2",
     "typescript": "^5.4.5",
     "vitest": "^4.1.6"

@@ -1,43 +1,86 @@
 # Vaultbox
 
-![Vaultbox logo](logo.svg)
+<p align="center">
+  <img src="logo.svg" alt="Vaultbox logo" width="128" height="128">
+</p>
 
-Vaultbox is an Obsidian plugin for syncing a vault directly with a selected Dropbox folder on desktop and mobile.
+Vaultbox is an Obsidian plugin that syncs a vault directly with a selected Dropbox folder on desktop and mobile.
 
-The goal is to support people who already keep an Obsidian vault in Dropbox on a desktop machine, but cannot use that same Dropbox folder from Obsidian mobile. Vaultbox will talk to the Dropbox API from inside Obsidian so phones and tablets can sync against the same Dropbox folder without relying on the Dropbox desktop client or local Git.
+It is built for people who already keep a vault in Dropbox on a desktop machine, but cannot use that same Dropbox folder from Obsidian mobile. Vaultbox talks to the Dropbox API from inside Obsidian, so phones and tablets can sync against a Dropbox-backed vault without needing the Dropbox desktop client.
 
-## Current Status
+## Why Use It
 
-This repository is the first scaffold. It includes:
+- Sync a vault to a normal Dropbox folder.
+- Use Dropbox-backed sync on phones and tablets where the Dropbox desktop client is not available.
+- Pick an existing Dropbox folder, so desktop users can keep using their current Dropbox workflow.
+- Preview changes with simulation before applying them.
+- Choose manual sync for full control or automatic sync for routine updates.
+- Keep `.obsidian/**` out of sync by default, avoiding token and device-specific settings leaks.
+- Detect conflicts and stop for a user decision instead of silently overwriting notes.
 
-- Obsidian plugin build/test setup.
-- Dropbox OAuth code flow with PKCE and offline refresh tokens.
-- Dropbox folder picker for choosing an existing non-root vault folder.
-- A starter Dropbox API client for listing, validating, uploading, downloading, and deleting files.
-- A plan-first sync planner, simulation button, and debug log that compare local vault files with Dropbox without mutating either side.
-- A guarded sync executor that applies conflict-free plans with local hash and Dropbox `rev` rechecks.
-- Tests around auth, Dropbox API assumptions, and local/remote sync planning conflicts.
+Vaultbox is deliberately conservative. It plans the sync before applying it, tracks file metadata, treats deletes carefully, rechecks files before changing them, and uses Dropbox `rev` values for guarded remote writes.
 
-The executor is deliberately conservative: it detects conflicts before applying a plan, revalidates files before each write/delete, and stores partial progress if a later operation fails.
+## Sync Modes
 
-Initial push syncs to an empty Dropbox folder can take a few minutes for larger vaults. Vaultbox intentionally favors consistency over raw throughput: it plans first, rechecks each local file before upload, uses guarded Dropbox writes, handles Dropbox write throttling with backoff, and only records files as synced after Dropbox confirms them. That is slower than a bulk "fire and forget" upload, but it reduces the chance of turning a temporary network or API issue into a damaged vault.
+Vaultbox supports two main workflows.
+
+## Settings
+
+![Vaultbox settings screen](docs/vaultbox-settings.png)
+
+**Manual sync** runs only when you click the ribbon icon, use the command palette, or start sync from settings. Manual mode can also require confirmation: Vaultbox prepares the sync plan, shows what it intends to upload, download, or delete, and waits for approval before changing anything.
+
+**Automatic sync** can run on startup, on an interval, or both. It uses the same planning engine as manual sync, but applies safe plans without asking each time.
+
+The settings screen also includes **Simulate sync**. Simulation builds the same plan as a real sync and reports what would happen without changing local files, Dropbox files, or Vaultbox metadata. It is useful before first sync, after changing Dropbox folders, and any time the vault state feels uncertain.
+
+## First Sync Performance
+
+Initial push syncs to an empty Dropbox folder can take a few minutes for larger vaults. Vaultbox intentionally favors consistency over raw throughput: it plans first, rechecks each local file before upload, uses guarded Dropbox writes, handles Dropbox write throttling with backoff, and only records files as synced after Dropbox confirms them.
+
+That is slower than a bulk "fire and forget" upload, but it reduces the chance of turning a temporary network or API issue into a damaged vault. Vaultbox shows progress while it works.
 
 If a first sync is interrupted or the selected Dropbox folder is manually cleared, use **Reset sync tracking** in settings. It clears Vaultbox metadata without deleting local files or Dropbox files, so the next sync starts from the current local and Dropbox contents.
 
-## Product Direction
+## Safety Net
 
-Vaultbox will request Full Dropbox access because the core use case is syncing an existing vault folder that may already be managed by the Dropbox desktop app. The plugin should only operate inside the selected folder path and the README/settings UI should stay explicit about that permission tradeoff.
+Sync tools need a high bar because mistakes can damage a vault. Vaultbox includes unit tests for the sync planner, sync executor, Dropbox client, auth flow, debug logging, throttling retry behavior, and progress reporting. It also includes live Dropbox end-to-end tests against disposable folders.
 
-Planned behavior:
+The automated tests cover uploads, downloads, local deletes, remote deletes, stale Dropbox `rev` protection, first-sync behavior, conflict detection, case conflicts, reset tracking, and live Dropbox conflict modes.
 
-- Pick or enter an existing Dropbox folder.
-- Sync manually or automatically.
-- Simulate planned changes before applying them. Initial simulation support is in place.
-- Detect local/remote conflicts and ask for a decision. Initial conflict planning support is in place.
-- Use Dropbox `rev` values for guarded writes.
-- Use Dropbox `content_hash` for remote change detection.
-- Treat Dropbox paths as case-insensitive and detect case conflicts.
-- Exclude `.obsidian/**` from vault sync.
+That testing does not remove the need for backups, especially while the plugin is young, but it gives the sync logic a real safety net rather than relying only on happy-path manual testing.
+
+## Privacy And Access
+
+Vaultbox enumerates vault files so it can compare local paths with the selected Dropbox folder and decide what needs to sync. It deliberately excludes `.obsidian/**` so plugin settings, tokens, and device-specific Obsidian state are not uploaded as notes.
+
+Vaultbox requests Dropbox file metadata and content read/write scopes. The Dropbox app uses Full Dropbox access because the core use case is selecting an existing folder that may already be managed by the Dropbox desktop app. Vaultbox only operates inside the folder you select in settings.
+
+Vaultbox does not read from or write to the system clipboard.
+
+## Support
+
+Vaultbox is free to use. If it saves you time and you want to support ongoing development, you can sponsor the project on [GitHub Sponsors](https://github.com/sponsors/grumpydev) or send a one-off tip on [Ko-fi](https://ko-fi.com/grumpydev).
+
+Support is optional and does not unlock features.
+
+## Manual Installation
+
+Build or download the plugin files, then place them in:
+
+```text
+<vault>/.obsidian/plugins/vaultbox/
+```
+
+The folder should contain:
+
+```text
+main.js
+manifest.json
+styles.css
+```
+
+Restart Obsidian or reload plugins, then enable Vaultbox from Community plugins.
 
 ## Dropbox App Setup
 
@@ -60,13 +103,15 @@ Vaultbox uses the OAuth code flow without a redirect URI. Dropbox displays an au
 
 ## Development
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, sync safety expectations, and release notes.
+
 Install dependencies:
 
 ```bash
 npm install
 ```
 
-Run tests:
+Run unit tests:
 
 ```bash
 npm test
@@ -96,16 +141,6 @@ npm run local-install -- "/path/to/Test Vault"
 ```
 
 Use a throwaway Dropbox account or folder while developing sync behavior.
-
-## Safety Notes
-
-Dropbox sync changes should be treated as vault-wide changes. Before implementing mutating sync behavior:
-
-- Add focused unit tests for upload, download, delete, and conflict cases.
-- Add tests for network errors and stale `rev` conflicts.
-- Avoid partial local writes when remote writes fail.
-- Keep auth tokens out of synced files.
-- Keep `.obsidian/**` excluded unless a future allowlist is deliberately designed.
 
 ## License
 

@@ -3,6 +3,11 @@ import type { DropboxFolderMetadata } from "./types";
 import { VAULTBOX_ICON } from "./icons";
 import type VaultboxPlugin from "./main";
 
+const SUPPORT_LINKS = {
+  githubSponsors: "https://github.com/sponsors/grumpydev",
+  koFi: "https://ko-fi.com/grumpydev",
+};
+
 export class VaultboxSettingTab extends PluginSettingTab {
   private statusEl: HTMLElement | null = null;
 
@@ -101,6 +106,7 @@ export class VaultboxSettingTab extends PluginSettingTab {
 
     this.addSyncSettings(containerEl);
     this.addDebugSettings(containerEl);
+    this.addSupport(containerEl);
     this.addActions(containerEl);
   }
 
@@ -270,6 +276,28 @@ export class VaultboxSettingTab extends PluginSettingTab {
             button.setButtonText("Syncing...");
             await this.plugin.syncNow();
             this.display();
+          });
+      });
+  }
+
+  private addSupport(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName("Support Vaultbox")
+      .setDesc(
+        "Vaultbox is free to use. If it saves you time, you can support ongoing development with a voluntary tip.",
+      )
+      .addButton((button) => {
+        button
+          .setButtonText("GitHub Sponsors")
+          .onClick(() => {
+            window.open(SUPPORT_LINKS.githubSponsors, "_blank", "noopener,noreferrer");
+          });
+      })
+      .addButton((button) => {
+        button
+          .setButtonText("Ko-fi")
+          .onClick(() => {
+            window.open(SUPPORT_LINKS.koFi, "_blank", "noopener,noreferrer");
           });
       });
   }
