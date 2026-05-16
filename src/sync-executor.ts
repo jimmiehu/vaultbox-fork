@@ -24,6 +24,13 @@ export interface SyncExecutionResult {
   state: VaultboxSyncState;
 }
 
+export interface SyncExecutionProgress {
+  completed: number;
+  total: number;
+  operation: Exclude<SyncOperation["kind"], "noop">;
+  path: string;
+}
+
 export class SyncExecutionError extends Error {
   constructor(
     message: string,
@@ -54,6 +61,7 @@ export async function executeSyncPlan(args: {
   plan: SyncPlan;
   currentState: VaultboxSyncState;
   uploadConcurrency?: number;
+  onProgress?: (progress: SyncExecutionProgress) => void;
 }): Promise<SyncExecutionResult> {
   if (args.plan.conflicts.length > 0) {
     throw new Error(`Cannot sync while ${args.plan.conflicts.length} conflict(s) need review.`);
@@ -61,7 +69,18 @@ export async function executeSyncPlan(args: {
 
   const files = { ...args.currentState.files };
   const remoteFolderCache = new Set<string>();
+  const total = args.plan.operations.filter((operation) => operation.kind !== "noop").length;
+  let completed = 0;
   let applied = 0;
+  const reportProgress = (operation: Exclude<SyncOperation, { kind: "noop" }>) => {
+    completed += 1;
+    args.onProgress?.({
+      completed,
+      total,
+      operation: operation.kind,
+      path: operation.path,
+    });
+  };
 
   const operations = args.plan.operations;
   for (let index = 0; index < operations.length; index += 1) {
@@ -83,6 +102,7 @@ export async function executeSyncPlan(args: {
           files,
           remoteFolderCache,
           concurrency: args.uploadConcurrency ?? DEFAULT_UPLOAD_CONCURRENCY,
+          onUploaded: reportProgress,
         });
       } catch (error) {
         if (error instanceof UploadRunError) {
@@ -134,6 +154,7 @@ export async function executeSyncPlan(args: {
 
     if (operation.kind !== "noop") {
       applied += 1;
+      reportProgress(operation);
     }
   }
 
@@ -154,6 +175,7 @@ async function uploadLocalFiles(args: {
   files: Record<string, SyncedFileState>;
   remoteFolderCache: Set<string>;
   concurrency: number;
+  onUploaded: (operation: Extract<SyncOperation, { kind: "upload" }>) => void;
 }): Promise<number> {
   await ensureRemoteParentFoldersForUploads(args.dropbox, args.rootPath, args.operations, args.remoteFolderCache);
 
@@ -180,6 +202,7 @@ async function uploadLocalFiles(args: {
           remoteFolderCache: args.remoteFolderCache,
         });
         applied += 1;
+        args.onUploaded(operation);
       } catch (error) {
         failure = error;
         return;

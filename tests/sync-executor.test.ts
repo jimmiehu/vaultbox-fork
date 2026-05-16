@@ -104,6 +104,45 @@ describe("sync executor", () => {
     expect(dropbox.upload).toHaveBeenCalledTimes(5);
   });
 
+  it("reports progress as sync operations complete", async () => {
+    const firstHash = await hash("first");
+    const secondHash = await hash("second");
+    const vault = new FakeVault({
+      "First.md": "first",
+      "Second.md": "second",
+    });
+    const progress: Array<{ completed: number; total: number; operation: string; path: string }> = [];
+
+    await executeSyncPlan({
+      vault: vault.asVault(),
+      dropbox: new FakeDropbox({}),
+      rootPath: "/Vault",
+      currentState: emptyState(),
+      onProgress: (event) => progress.push(event),
+      plan: plan([
+        {
+          kind: "noop",
+          path: "Already.md",
+        },
+        {
+          kind: "upload",
+          path: "First.md",
+          local: localFile("First.md", firstHash),
+        },
+        {
+          kind: "upload",
+          path: "Second.md",
+          local: localFile("Second.md", secondHash),
+        },
+      ]),
+    });
+
+    expect(progress).toHaveLength(2);
+    expect(progress.map((event) => event.completed)).toEqual([1, 2]);
+    expect(progress.every((event) => event.total === 2)).toBe(true);
+    expect(progress.map((event) => event.operation)).toEqual(["upload", "upload"]);
+  });
+
   it("stops upload when the local file changed after planning", async () => {
     const plannedHash = await hash("planned");
     const vault = new FakeVault({ "A.md": "changed" });

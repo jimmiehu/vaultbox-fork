@@ -218,6 +218,7 @@ export default class VaultboxPlugin extends Plugin {
 
   async syncNow(): Promise<void> {
     const hadExistingSyncState = Object.keys(this.syncState.files).length > 0;
+    let progressNotice: Notice | null = null;
 
     try {
       this.debugLog.write("sync.start", {
@@ -225,12 +226,14 @@ export default class VaultboxPlugin extends Plugin {
         confirm: this.settings.syncMode === "manual" && this.settings.confirmBeforeManualSync,
       });
       this.settings.lastSyncStartedAt = Date.now();
+      progressNotice = new Notice("Vaultbox: preparing sync plan...", 0);
       const plan = await this.buildSyncPlan();
       if (plan.conflicts.length > 0) {
         const message = formatSyncPlan(plan, "Sync blocked");
         this.settings.lastSyncSummary = message;
         this.debugLog.write("sync.conflicts", plan.summary);
         await this.saveSettings();
+        progressNotice.hide();
         new Notice(message);
         return;
       }
@@ -240,11 +243,14 @@ export default class VaultboxPlugin extends Plugin {
         this.settings.lastSyncSummary = "No sync required. Everything is up to date.";
         this.debugLog.write("sync.noop", plan.summary);
         await this.saveSettings();
+        progressNotice.hide();
         new Notice("No sync required. Everything is up to date.");
         return;
       }
 
       if (this.settings.syncMode === "manual" && this.settings.confirmBeforeManualSync) {
+        progressNotice.hide();
+        progressNotice = null;
         const confirmed = window.confirm(`${formatSyncPlan(plan, "Confirm sync")}\n\nApply these changes now?`);
         if (!confirmed) {
           new Notice("Sync cancelled.");
@@ -252,12 +258,21 @@ export default class VaultboxPlugin extends Plugin {
         }
       }
 
+      const totalChanges = getPlanChangeCount(plan);
+      if (progressNotice) {
+        progressNotice.setMessage(`Vaultbox syncing: 0/${totalChanges} changes`);
+      } else {
+        progressNotice = new Notice(`Vaultbox syncing: 0/${totalChanges} changes`, 0);
+      }
       const result = await executeSyncPlan({
         vault: this.app.vault,
         dropbox: this.createDropboxClient(),
         rootPath: normalizeDropboxPath(this.settings.selectedFolderPath),
         plan,
         currentState: this.syncState,
+        onProgress: (progress) => {
+          progressNotice?.setMessage(formatSyncProgress(progress));
+        },
       });
       this.syncState = result.state;
       this.settings.lastSyncCompletedAt = Date.now();
@@ -267,6 +282,7 @@ export default class VaultboxPlugin extends Plugin {
         summary: plan.summary,
       });
       await this.saveSettings();
+      progressNotice.hide();
       new Notice(this.settings.lastSyncSummary);
     } catch (error) {
       if (error instanceof SyncExecutionError && hadExistingSyncState) {
@@ -277,6 +293,7 @@ export default class VaultboxPlugin extends Plugin {
       this.settings.lastSyncSummary = `Failed: ${message}`;
       this.debugLog.write("sync.failed", { message });
       await this.saveSettings();
+      progressNotice?.hide();
       new Notice(message);
     }
   }
@@ -326,4 +343,44 @@ export default class VaultboxPlugin extends Plugin {
       state: this.syncState,
     });
   }
+}
+
+function getPlanChangeCount(plan: SyncPlan): number {
+  return plan.summary.uploads + plan.summary.downloads + plan.summary.remoteDeletes + plan.summary.localDeletes;
+}
+
+function formatSyncProgress(progress: {
+  completed: number;
+  total: number;
+  operation: string;
+  path: string;
+}): string {
+  return [
+    `Vaultbox syncing: ${progress.completed}/${progress.total} changes`,
+    `${formatOperationLabel(progress.operation)} ${truncatePath(progress.path)}`,
+  ].join("\n");
+}
+
+function formatOperationLabel(operation: string): string {
+  switch (operation) {
+    case "upload":
+      return "Uploading";
+    case "download":
+      return "Downloading";
+    case "delete-remote":
+      return "Deleting from Dropbox";
+    case "delete-local":
+      return "Deleting locally";
+    default:
+      return "Syncing";
+  }
+}
+
+function truncatePath(path: string): string {
+  const maxLength = 72;
+  if (path.length <= maxLength) {
+    return path;
+  }
+
+  return `...${path.slice(path.length - maxLength + 3)}`;
 }
