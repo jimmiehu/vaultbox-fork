@@ -25,6 +25,10 @@
   color: var(--text-muted);
 }
 
+.workspace-ribbon .clickable-icon.vaultbox-ribbon-icon {
+  order: 999;
+}
+
 .vaultbox-status {
   margin-bottom: 12px;
   white-space: pre-wrap;

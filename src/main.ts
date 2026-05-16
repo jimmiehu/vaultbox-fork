@@ -31,6 +31,7 @@ export default class VaultboxPlugin extends Plugin {
   settings: VaultboxSettings = { ...DEFAULT_SETTINGS };
   pendingAuthCodeVerifier = "";
   syncState: VaultboxSyncState = { files: {}, lastSyncedAt: 0 };
+  private ribbonIconEl: HTMLElement | null = null;
   private debugLog!: DebugLog;
 
   async onload(): Promise<void> {
@@ -41,10 +42,16 @@ export default class VaultboxPlugin extends Plugin {
     this.debugLog.load((await this.loadPluginData()).debugLog);
 
     addIcon("vaultbox-logo", VAULTBOX_ICON_PATHS);
-    const ribbonIconEl = this.addRibbonIcon("vaultbox-logo", "Sync with Vaultbox", () => {
+    this.ribbonIconEl = this.addRibbonIcon("vaultbox-logo", "Sync with Vaultbox", () => {
       void this.syncNow();
     });
-    ribbonIconEl.parentElement?.appendChild(ribbonIconEl);
+    this.ribbonIconEl.classList.add("vaultbox-ribbon-icon");
+    this.keepRibbonIconAtEnd();
+    this.app.workspace.onLayoutReady(() => {
+      this.keepRibbonIconAtEnd();
+      window.setTimeout(() => this.keepRibbonIconAtEnd(), 250);
+      window.setTimeout(() => this.keepRibbonIconAtEnd(), 1_500);
+    });
 
     this.addCommand({
       id: "connect-dropbox",
@@ -71,6 +78,10 @@ export default class VaultboxPlugin extends Plugin {
     });
 
     this.addSettingTab(new VaultboxSettingTab(this.app, this));
+  }
+
+  keepRibbonIconAtEnd(): void {
+    this.ribbonIconEl?.parentElement?.appendChild(this.ribbonIconEl);
   }
 
   async loadSettings(): Promise<void> {
