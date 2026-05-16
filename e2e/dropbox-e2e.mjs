@@ -39,12 +39,14 @@ async function main() {
     await runTest("upload file and read metadata", async () => {
       await api.createFolder(joinDropboxPath(runRoot, "notes"));
       const uploaded = await api.upload(notePath, "hello from vaultbox\n");
-      assert.equal(uploaded[".tag"], "file");
       assert.equal(uploaded.path_lower, notePath.toLowerCase());
       assert.equal(typeof uploaded.rev, "string");
       assert.equal(typeof uploaded.content_hash, "string");
       assert(uploaded.rev.length > 0);
       assert(uploaded.content_hash.length > 0);
+      const metadata = await api.getMetadata(notePath);
+      assert.equal(metadata[".tag"], "file");
+      assert.equal(metadata.rev, uploaded.rev);
       firstRev = uploaded.rev;
     });
 
@@ -63,7 +65,6 @@ async function main() {
 
     await runTest("guarded update succeeds with current rev", async () => {
       const uploaded = await api.upload(notePath, "updated from vaultbox\n", firstRev);
-      assert.equal(uploaded[".tag"], "file");
       assert.notEqual(uploaded.rev, firstRev);
       secondRev = uploaded.rev;
       assert.equal(await api.download(notePath), "updated from vaultbox\n");

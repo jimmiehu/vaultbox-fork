@@ -67,12 +67,13 @@ npm test
 Run Dropbox API E2E tests:
 
 ```bash
-cp env.e2e.sample .env.e2e
-# Fill in VAULTBOX_E2E_DROPBOX_REFRESH_TOKEN.
+npm run dropbox:token
 npm run test:e2e
 ```
 
 The E2E suite creates a timestamped folder under `VAULTBOX_E2E_DROPBOX_TEST_ROOT`, uploads/downloads/updates/deletes files, verifies stale `rev` conflict behavior, and cleans up by default.
+
+The token helper prints a Dropbox authorization URL, asks you to paste the authorization code shown by Dropbox, and writes the resulting refresh token to `.env.e2e`. Treat `.env.e2e` as secret local state.
 
 Build:
 

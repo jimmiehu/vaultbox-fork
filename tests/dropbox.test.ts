@@ -106,4 +106,36 @@ describe("DropboxClient", () => {
     expect(arg.autorename).toBe(false);
     expect(arg.strict_conflict).toBe(true);
   });
+
+  it("normalizes upload metadata when Dropbox omits the file tag", async () => {
+    setRequestUrlMock(async () => ({
+      status: 200,
+      text: "",
+      json: {
+        name: "A.md",
+        path_display: "/A.md",
+        path_lower: "/a.md",
+        id: "id:file",
+        client_modified: "2026-01-01T00:00:00Z",
+        server_modified: "2026-01-01T00:00:01Z",
+        rev: "rev-b",
+        size: 1,
+        content_hash: "hash-b",
+      },
+      headers: {},
+    }));
+
+    const client = new DropboxClient({ getAccessToken: async () => "token" });
+    await expect(
+      client.upload({
+        path: "/A.md",
+        content: new Uint8Array([65]).buffer,
+      }),
+    ).resolves.toMatchObject({
+      tag: "file",
+      pathLower: "/a.md",
+      rev: "rev-b",
+      contentHash: "hash-b",
+    });
+  });
 });

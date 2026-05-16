@@ -173,7 +173,7 @@ function normalizeListResult(result: {
 
 function normalizeMetadata(entry: unknown): DropboxMetadata {
   const raw = entry as Record<string, unknown>;
-  const tag = raw[".tag"];
+  const tag = raw[".tag"] ?? inferMetadataTag(raw);
 
   if (tag === "file") {
     return {
@@ -201,6 +201,14 @@ function normalizeMetadata(entry: unknown): DropboxMetadata {
   }
 
   throw new Error(`Unsupported Dropbox metadata tag: ${String(tag)}`);
+}
+
+function inferMetadataTag(raw: Record<string, unknown>): "file" | undefined {
+  if (typeof raw.rev === "string" || typeof raw.content_hash === "string") {
+    return "file";
+  }
+
+  return undefined;
 }
 
 function arrayBufferToBinaryString(buffer: ArrayBuffer): string {
