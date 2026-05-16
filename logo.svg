@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Vaultbox</title>
+  <desc id="desc">A faceted purple vault character under an open blue box.</desc>
+  <defs>
+    <linearGradient id="blue" x1="96" y1="90" x2="416" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#20A5FF"/>
+      <stop offset="1" stop-color="#045FE8"/>
+    </linearGradient>
+    <linearGradient id="blue-dark" x1="166" y1="156" x2="346" y2="236" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#074EE4"/>
+      <stop offset="1" stop-color="#0439B8"/>
+    </linearGradient>
+    <linearGradient id="gem" x1="154" y1="222" x2="358" y2="420" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#CDBBFF"/>
+      <stop offset=".55" stop-color="#8B54E8"/>
+      <stop offset="1" stop-color="#4A22B9"/>
+    </linearGradient>
+    <linearGradient id="word" x1="98" y1="455" x2="414" y2="455" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6A38D4"/>
+      <stop offset=".5" stop-color="#7135D8"/>
+      <stop offset="1" stop-color="#0672F0"/>
+    </linearGradient>
+  </defs>
+
+  <g>
+    <path d="M94 105 214 52l42 34-122 56-40-37Z" fill="url(#blue)"/>
+    <path d="M418 105 298 52l-42 34 122 56 40-37Z" fill="url(#blue)"/>
+    <path d="M90 164 214 108l42 34-124 57-42-35Z" fill="url(#blue)"/>
+    <path d="M422 164 298 108l-42 34 124 57 42-35Z" fill="url(#blue)"/>
+    <path d="M134 142 256 86l122 56-122 57-122-57Z" fill="url(#blue-dark)" opacity=".9"/>
+
+    <path d="M154 196 256 143l102 53 20 100-50 69-72 27-72-27-50-69 20-100Z" fill="url(#gem)"/>
+    <path d="M154 196 214 222l42-79 42 79 60-26-102-53-102 53Z" fill="#B898FF" opacity=".8"/>
+    <path d="M184 365 214 222l42-79 42 79 30 143-72 27-72-27Z" fill="#BCA7FF" opacity=".45"/>
+    <path d="M214 222 256 143l42 79-4 88-38 82-38-82-4-88Z" fill="#F0E9FF" opacity=".55"/>
+    <path d="M134 296 184 365l34-55-4-88-60-26-20 100Z" fill="#733CD9" opacity=".7"/>
+    <path d="M378 296 328 365l-34-55 4-88 60-26 20 100Z" fill="#6332D4" opacity=".7"/>
+    <path d="M184 365 256 392l-38-82-34 55Z" fill="#5221B8" opacity=".85"/>
+    <path d="M328 365 256 392l38-82 34 55Z" fill="#6F43D6" opacity=".75"/>
+
+    <ellipse cx="224" cy="260" rx="13" ry="18" fill="#16003D"/>
+    <ellipse cx="288" cy="260" rx="13" ry="18" fill="#16003D"/>
+    <circle cx="220" cy="253" r="6" fill="#fff"/>
+    <circle cx="284" cy="253" r="6" fill="#fff"/>
+    <path d="M239 279c9 13 25 13 34 0" fill="none" stroke="#16003D" stroke-linecap="round" stroke-width="8"/>
+  </g>
+
+  <text x="256" y="466" fill="url(#word)" font-family="Nunito, Avenir Next, Arial Rounded MT Bold, Arial, sans-serif" font-size="78" font-weight="900" letter-spacing="-2" text-anchor="middle">vaultbox</text>
+</svg>

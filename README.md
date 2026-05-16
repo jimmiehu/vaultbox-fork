@@ -1,6 +1,6 @@
 # Vaultbox
 
-![Vaultbox logo](logo.png)
+![Vaultbox logo](logo.svg)
 
 Vaultbox is an Obsidian plugin for syncing a vault directly with a selected Dropbox folder on desktop and mobile.
 
