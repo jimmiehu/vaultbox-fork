@@ -128,6 +128,15 @@ export default class VaultboxPlugin extends Plugin {
     await this.debugLog.clear();
   }
 
+  async resetSyncState(): Promise<void> {
+    this.syncState = { files: {}, lastSyncedAt: 0 };
+    this.settings.lastSyncStartedAt = null;
+    this.settings.lastSyncCompletedAt = null;
+    this.settings.lastSyncSummary = "Sync tracking reset. The next sync will compare local files and Dropbox as a fresh setup.";
+    this.debugLog.write("sync-state.reset");
+    await this.saveSettings();
+  }
+
   isConnected(): boolean {
     return Boolean(this.settings.refreshToken);
   }
@@ -208,6 +217,8 @@ export default class VaultboxPlugin extends Plugin {
   }
 
   async syncNow(): Promise<void> {
+    const hadExistingSyncState = Object.keys(this.syncState.files).length > 0;
+
     try {
       this.debugLog.write("sync.start", {
         folderPath: this.settings.selectedFolderPath,
@@ -258,7 +269,7 @@ export default class VaultboxPlugin extends Plugin {
       await this.saveSettings();
       new Notice(this.settings.lastSyncSummary);
     } catch (error) {
-      if (error instanceof SyncExecutionError) {
+      if (error instanceof SyncExecutionError && hadExistingSyncState) {
         this.syncState = error.partialState;
         await this.saveSettings();
       }

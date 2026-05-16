@@ -176,6 +176,33 @@ export class VaultboxSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Last sync")
       .setDesc(this.plugin.settings.lastSyncSummary || "No completed sync yet.");
+
+    new Setting(containerEl)
+      .setName("Reset sync tracking")
+      .setDesc(
+        "Clears Vaultbox's local sync metadata without changing local files or Dropbox. Use this after clearing or replacing the Dropbox folder so the next sync starts fresh.",
+      )
+      .addButton((button) => {
+        button
+          .setButtonText("Reset tracking")
+          .onClick(async () => {
+            const confirmed = window.confirm(
+              [
+                "Reset Vaultbox sync tracking?",
+                "",
+                "This will not delete local files or Dropbox files.",
+                "The next sync will treat this vault and the selected Dropbox folder as a fresh setup.",
+              ].join("\n"),
+            );
+            if (!confirmed) {
+              return;
+            }
+
+            await this.plugin.resetSyncState();
+            new Notice("Vaultbox sync tracking reset.");
+            this.display();
+          });
+      });
   }
 
   private addDebugSettings(containerEl: HTMLElement): void {

@@ -20,6 +20,8 @@ This repository is the first scaffold. It includes:
 
 The executor is deliberately conservative: it detects conflicts before applying a plan, revalidates files before each write/delete, and stores partial progress if a later operation fails.
 
+If a first sync is interrupted or the selected Dropbox folder is manually cleared, use **Reset sync tracking** in settings. It clears Vaultbox metadata without deleting local files or Dropbox files, so the next sync starts from the current local and Dropbox contents.
+
 ## Product Direction
 
 Vaultbox will request Full Dropbox access because the core use case is syncing an existing vault folder that may already be managed by the Dropbox desktop app. The plugin should only operate inside the selected folder path and the README/settings UI should stay explicit about that permission tradeoff.
