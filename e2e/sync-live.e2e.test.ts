@@ -154,6 +154,18 @@ describe("live Dropbox sync engine E2E", () => {
       await client.delete(joinDropboxPath(root, "A.md"));
       return seeded;
     });
+
+    await expectLiveConflict("local-file-remote-folder", "path-shape-conflict", async (root) => {
+      const vault = new FakeVault({ "Notes": "local file\n" });
+      await uploadText(client, root, "Notes/A.md", "remote nested\n");
+      return { vault, state: emptyState() };
+    });
+
+    await expectLiveConflict("remote-file-local-folder", "path-shape-conflict", async (root) => {
+      const vault = new FakeVault({ "Notes/A.md": "local nested\n" });
+      await uploadText(client, root, "Notes", "remote file\n");
+      return { vault, state: emptyState() };
+    });
   }, 180_000);
 
   it("covers case-conflict planner modes that Dropbox itself prevents", async () => {

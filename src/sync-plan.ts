@@ -15,6 +15,7 @@ export interface LocalFileSnapshot {
 export type SyncConflictType =
   | "local-case-conflict"
   | "remote-case-conflict"
+  | "path-shape-conflict"
   | "path-case-mismatch"
   | "both-new"
   | "both-modified"
@@ -120,6 +121,15 @@ export function createSyncPlan(args: {
     ...args.remoteFiles.keys(),
     ...previousFiles.keys(),
   ]);
+  conflicts.push(...findPathShapeConflicts(args.localFiles, args.remoteFiles));
+
+  if (conflicts.length > 0) {
+    return {
+      operations,
+      conflicts,
+      summary: summarizePlan(operations, conflicts),
+    };
+  }
 
   for (const pathLower of [...allKeys].sort()) {
     const local = args.localFiles.get(pathLower);
@@ -176,6 +186,66 @@ export function createSyncPlan(args: {
     conflicts,
     summary: summarizePlan(operations, conflicts),
   };
+}
+
+function findPathShapeConflicts(
+  localFiles: Map<string, LocalFileSnapshot>,
+  remoteFiles: Map<string, DropboxFileMetadata>,
+): SyncConflict[] {
+  const conflicts = new Map<string, SyncConflict>();
+
+  for (const localPath of localFiles.keys()) {
+    for (const ancestorPath of ancestorPathsInclusive(localPath)) {
+      if (ancestorPath === localPath || !remoteFiles.has(ancestorPath) || conflicts.has(ancestorPath)) {
+        continue;
+      }
+
+      addPathShapeConflict(conflicts, ancestorPath, localFiles.get(localPath), remoteFiles.get(ancestorPath));
+    }
+  }
+
+  for (const remotePath of remoteFiles.keys()) {
+    for (const ancestorPath of ancestorPathsInclusive(remotePath)) {
+      if (ancestorPath === remotePath || !localFiles.has(ancestorPath) || conflicts.has(ancestorPath)) {
+        continue;
+      }
+
+      addPathShapeConflict(conflicts, ancestorPath, localFiles.get(ancestorPath), remoteFiles.get(remotePath));
+    }
+  }
+
+  return [...conflicts.values()].sort((first, second) => first.path.localeCompare(second.path));
+}
+
+function addPathShapeConflict(
+  conflicts: Map<string, SyncConflict>,
+  blockingPath: string,
+  local: LocalFileSnapshot | undefined,
+  remote: DropboxFileMetadata | undefined,
+): void {
+  conflicts.set(blockingPath, {
+    kind: "conflict",
+    type: "path-shape-conflict",
+    path: blockingPath,
+    message: `A file/folder path conflict blocks sync near ${blockingPath}. Rename one side before syncing.`,
+    local,
+    remote,
+    paths: [local?.path, remote ? remoteRelativePath(remote) : undefined].filter((path): path is string => Boolean(path)),
+  });
+}
+
+function ancestorPathsInclusive(path: string): string[] {
+  const ancestors = [path];
+  let current = path;
+
+  while (current.includes("/")) {
+    current = current.slice(0, current.lastIndexOf("/"));
+    if (current) {
+      ancestors.push(current);
+    }
+  }
+
+  return ancestors;
 }
 
 export function createRemoteFileSnapshot(

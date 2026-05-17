@@ -138,6 +138,32 @@ describe("sync planner", () => {
     expect(plan.conflicts[0]?.type).toBe("path-case-mismatch");
   });
 
+  it("flags local files that block remote folder paths", () => {
+    const plan = createSyncPlan({
+      localFiles: localMap(localFile("Notes", "local")),
+      remoteFiles: remoteMap(remoteFile("Notes/A.md", "remote", "rev")),
+    });
+
+    expect(plan.summary.conflicts).toBe(1);
+    expect(plan.conflicts[0]?.type).toBe("path-shape-conflict");
+    expect(plan.conflicts[0]?.path).toBe("notes");
+    expect(plan.summary.uploads).toBe(0);
+    expect(plan.summary.downloads).toBe(0);
+  });
+
+  it("flags remote files that block local folder paths", () => {
+    const plan = createSyncPlan({
+      localFiles: localMap(localFile("Notes/A.md", "local")),
+      remoteFiles: remoteMap(remoteFile("Notes", "remote", "rev")),
+    });
+
+    expect(plan.summary.conflicts).toBe(1);
+    expect(plan.conflicts[0]?.type).toBe("path-shape-conflict");
+    expect(plan.conflicts[0]?.path).toBe("notes");
+    expect(plan.summary.uploads).toBe(0);
+    expect(plan.summary.downloads).toBe(0);
+  });
+
   it("flags local files that differ only by case", () => {
     const plan = createSyncPlan({
       localFiles: localMap({

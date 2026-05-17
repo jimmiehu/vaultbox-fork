@@ -296,6 +296,10 @@ async function downloadRemoteFile(args: {
   files: Record<string, SyncedFileState>;
 }): Promise<void> {
   const localPath = args.operation.path;
+  if (args.vault.getFolderByPath(localPath)) {
+    throw new Error(`Cannot download ${localPath}; a local folder already exists there.`);
+  }
+
   const existing = await readLocalSnapshot(args.vault, localPath);
 
   if (args.operation.previous) {
@@ -315,7 +319,17 @@ async function downloadRemoteFile(args: {
   await ensureParentFolders(args.vault, localPath);
   const file = args.vault.getFileByPath(localPath);
   if (file) {
-    await args.vault.modifyBinary(file, content);
+    try {
+      await args.vault.modifyBinary(file, content);
+    } catch (error) {
+      if (!isFileAlreadyExistsError(error)) {
+        throw error;
+      }
+
+      await args.vault.delete(file);
+      await ensureParentFolders(args.vault, localPath);
+      await args.vault.createBinary(localPath, content);
+    }
   } else {
     await args.vault.createBinary(localPath, content);
   }
@@ -507,4 +521,8 @@ function toDropboxPath(rootPath: string, relativePath: string): string {
 
 function isDropboxNotFoundError(error: Error): boolean {
   return error.message.includes("path/not_found") || error.message.includes("not_found");
+}
+
+function isFileAlreadyExistsError(error: unknown): boolean {
+  return error instanceof Error && /file already exists/i.test(error.message);
 }

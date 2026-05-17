@@ -201,6 +201,64 @@ describe("sync executor", () => {
     });
   });
 
+  it("falls back to recreating an existing file when modifyBinary reports it already exists", async () => {
+    const oldHash = await hash("old");
+    const newHash = await hash("remote new");
+    const previous = synced("Folder/A.md", oldHash, oldHash, "rev-old");
+    const vault = new FakeVault({ "Folder/A.md": "old" });
+    vault.failNextModifyBinary = new Error("File already exists.");
+    const dropbox = new FakeDropbox({
+      downloadContent: bytes("remote new"),
+    });
+
+    const result = await executeSyncPlan({
+      vault: vault.asVault(),
+      dropbox,
+      rootPath: "/Vault",
+      currentState: state([previous]),
+      plan: plan([
+        {
+          kind: "download",
+          path: "Folder/A.md",
+          remote: remoteFile("Folder/A.md", newHash, "rev-new"),
+          previous,
+        },
+      ]),
+    });
+
+    expect(vault.text("Folder/A.md")).toBe("remote new");
+    expect(result.state.files["folder/a.md"]).toMatchObject({
+      localContentHash: newHash,
+      remoteRev: "rev-new",
+    });
+  });
+
+  it("refuses to download over a local folder", async () => {
+    const contentHash = await hash("remote file");
+    const vault = new FakeVault({});
+    vault.addFolder("Folder");
+    const dropbox = new FakeDropbox({
+      downloadContent: bytes("remote file"),
+    });
+
+    await expect(
+      executeSyncPlan({
+        vault: vault.asVault(),
+        dropbox,
+        rootPath: "/Vault",
+        currentState: emptyState(),
+        plan: plan([
+          {
+            kind: "download",
+            path: "Folder",
+            remote: remoteFile("Folder", contentHash, "rev-new"),
+          },
+        ]),
+      }),
+    ).rejects.toThrow(/local folder already exists/);
+    expect(vault.hasFolder("Folder")).toBe(true);
+  });
+
   it("creates parent folders for new remote downloads", async () => {
     const contentHash = await hash("new remote");
     const vault = new FakeVault({});
@@ -392,6 +450,7 @@ class FakeDropbox implements SyncDropboxClient {
 class FakeVault {
   private readonly files = new Map<string, ArrayBuffer>();
   private readonly folders = new Set<string>();
+  failNextModifyBinary: Error | null = null;
 
   constructor(initialFiles: Record<string, string>) {
     for (const [path, value] of Object.entries(initialFiles)) {
@@ -416,6 +475,12 @@ class FakeVault {
         return content;
       },
       modifyBinary: async (file: { path: string }, content: ArrayBuffer) => {
+        if (this.failNextModifyBinary) {
+          const error = this.failNextModifyBinary;
+          this.failNextModifyBinary = null;
+          throw error;
+        }
+
         this.files.set(file.path, content);
       },
       createBinary: async (path: string, content: ArrayBuffer) => {
@@ -435,6 +500,10 @@ class FakeVault {
 
   hasFolder(path: string): boolean {
     return this.folders.has(path);
+  }
+
+  addFolder(path: string): void {
+    this.folders.add(path);
   }
 
   text(path: string): string {
