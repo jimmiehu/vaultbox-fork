@@ -10,11 +10,12 @@ type RequestUrl = (request: {
   url: string;
   method?: string;
   headers?: Record<string, string>;
-  body?: string;
+  body?: string | ArrayBuffer;
   throw?: boolean;
 }) => Promise<{
   status: number;
   text: string;
+  arrayBuffer?: ArrayBuffer;
   json: unknown;
   headers: Record<string, string>;
 }>;

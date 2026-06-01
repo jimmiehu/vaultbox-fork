@@ -165,13 +165,13 @@ export class DropboxClient {
           "Content-Type": body ? "application/octet-stream" : "",
           "Dropbox-API-Arg": JSON.stringify(args),
         },
-        body: body ? arrayBufferToBinaryString(body) : undefined,
+        body,
         throw: false,
       });
 
       if (response.status >= 200 && response.status < 300) {
         if (responseType === "arrayBuffer") {
-          return stringToArrayBuffer(response.text) as T;
+          return response.arrayBuffer as T;
         }
 
         return response.json as T;
@@ -249,22 +249,6 @@ function inferMetadataTag(raw: Record<string, unknown>): "file" | undefined {
   }
 
   return undefined;
-}
-
-function arrayBufferToBinaryString(buffer: ArrayBuffer): string {
-  let binary = "";
-  for (const byte of new Uint8Array(buffer)) {
-    binary += String.fromCharCode(byte);
-  }
-  return binary;
-}
-
-function stringToArrayBuffer(value: string): ArrayBuffer {
-  const bytes = new Uint8Array(value.length);
-  for (let index = 0; index < value.length; index += 1) {
-    bytes[index] = value.charCodeAt(index) & 0xff;
-  }
-  return bytes.buffer;
 }
 
 function isRetryableDropboxResponse(response: { status: number; text: string; json: unknown }): boolean {

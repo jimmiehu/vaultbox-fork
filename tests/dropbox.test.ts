@@ -111,6 +111,7 @@ describe("DropboxClient", () => {
   });
 
   it("uses update mode with rev for guarded uploads", async () => {
+    const content = new Uint8Array([0, 195, 169, 255]).buffer;
     const request = vi.fn(async () => ({
       status: 200,
       text: "",
@@ -134,15 +135,31 @@ describe("DropboxClient", () => {
     await client.upload({
       path: "/A.md",
       rev: "rev-a",
-      content: new Uint8Array([65]).buffer,
+      content,
     });
 
-    const firstCall = request.mock.calls[0] as Array<{ headers?: Record<string, string> }> | undefined;
+    const firstCall = request.mock.calls[0] as Array<{ body?: ArrayBuffer; headers?: Record<string, string> }> | undefined;
     expect(firstCall).toBeDefined();
     const arg = JSON.parse(String(firstCall?.[0].headers?.["Dropbox-API-Arg"]));
     expect(arg.mode).toEqual({ ".tag": "update", update: "rev-a" });
     expect(arg.autorename).toBe(false);
     expect(arg.strict_conflict).toBe(true);
+    expect(firstCall?.[0].body).toBe(content);
+  });
+
+  it("downloads raw bytes from the response array buffer", async () => {
+    const content = new Uint8Array([0, 195, 169, 255]).buffer;
+    const request = vi.fn(async () => ({
+      status: 200,
+      text: "corrupted text fallback",
+      arrayBuffer: content,
+      json: {},
+      headers: {},
+    }));
+    setRequestUrlMock(request);
+
+    const client = new DropboxClient({ getAccessToken: async () => "token" });
+    await expect(client.download("/A.md")).resolves.toBe(content);
   });
 
   it("lists all files recursively for sync snapshots", async () => {

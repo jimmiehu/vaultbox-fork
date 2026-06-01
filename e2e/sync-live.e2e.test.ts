@@ -362,6 +362,7 @@ function installRequestUrlFetchMock(config: E2EConfig): void {
     return {
       status: response.status,
       text,
+      arrayBuffer: buffer,
       json,
       headers: Object.fromEntries(response.headers.entries()),
     };
