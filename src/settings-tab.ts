@@ -111,7 +111,7 @@ export class VaultboxSettingTab extends PluginSettingTab {
 
   private addHeader(containerEl: HTMLElement): void {
     new Setting(containerEl)
-      .setName("Vaultbox")
+      .setName("Dropbox sync")
       .setHeading();
 
     const header = containerEl.createDiv({ cls: "vaultbox-settings-header" });
