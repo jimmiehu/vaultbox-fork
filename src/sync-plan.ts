@@ -80,8 +80,11 @@ export interface SyncPlan {
   summary: SyncPlanSummary;
 }
 
-export async function scanLocalVault(vault: Vault): Promise<Map<string, LocalFileSnapshot>> {
-  const files = vault.getFiles().filter((file) => shouldSyncPath(file.path));
+export async function scanLocalVault(
+  vault: Vault,
+  configDir: string,
+): Promise<Map<string, LocalFileSnapshot>> {
+  const files = vault.getFiles().filter((file) => shouldSyncPath(file.path, configDir));
   const snapshots = new Map<string, LocalFileSnapshot>();
 
   for (const file of files) {
@@ -318,14 +321,17 @@ export function isPlanEmpty(plan: SyncPlan): boolean {
     plan.summary.conflicts === 0;
 }
 
-export function shouldSyncPath(path: string): boolean {
+export function shouldSyncPath(path: string, configDir: string): boolean {
   const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
   if (!normalized || normalized.endsWith("/")) {
     return false;
   }
 
   const parts = normalized.split("/");
-  return parts[0] !== ".obsidian" && !parts.includes("");
+  const normalizedConfigDir = configDir.replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
+  return normalized !== normalizedConfigDir &&
+    !normalized.startsWith(`${normalizedConfigDir}/`) &&
+    !parts.includes("");
 }
 
 export function normalizePathKey(path: string): string {

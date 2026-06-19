@@ -1,7 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
-import { executeSyncPlan, SyncExecutionError, type SyncDropboxClient } from "../src/sync-executor";
+import {
+  executeSyncPlan as executeSyncPlanRaw,
+  SyncExecutionError,
+  type SyncDropboxClient,
+} from "../src/sync-executor";
 import { getDropboxContentHash, normalizePathKey, type SyncPlan } from "../src/sync-plan";
 import type { DropboxFileMetadata, SyncedFileState, VaultboxSyncState } from "../src/types";
+
+type ExecuteSyncPlanArgs = Parameters<typeof executeSyncPlanRaw>[0];
+
+function executeSyncPlan(args: Omit<ExecuteSyncPlanArgs, "fileManager">): ReturnType<typeof executeSyncPlanRaw> {
+  return executeSyncPlanRaw({
+    ...args,
+    fileManager: {
+      trashFile: async (file: { path: string }) => {
+        await (args.vault as { delete(file: { path: string }): Promise<void> }).delete(file);
+      },
+    } as never,
+  });
+}
 
 describe("sync executor", () => {
   it("uploads local changes with the previous Dropbox rev and records new state", async () => {

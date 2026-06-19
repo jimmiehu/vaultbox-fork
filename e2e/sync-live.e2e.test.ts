@@ -4,7 +4,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import type { TFile, Vault } from "obsidian";
 import { DropboxClient, normalizeDropboxPath } from "../src/dropbox";
-import { executeSyncPlan } from "../src/sync-executor";
+import { executeSyncPlan as executeSyncPlanRaw } from "../src/sync-executor";
 import {
   createRemoteFileSnapshot,
   createSyncPlan,
@@ -16,6 +16,19 @@ import {
 } from "../src/sync-plan";
 import type { DropboxFileMetadata, VaultboxSyncState } from "../src/types";
 import { setRequestUrlMock } from "../tests/mocks/obsidian";
+
+type ExecuteSyncPlanArgs = Parameters<typeof executeSyncPlanRaw>[0];
+
+function executeSyncPlan(args: Omit<ExecuteSyncPlanArgs, "fileManager">): ReturnType<typeof executeSyncPlanRaw> {
+  return executeSyncPlanRaw({
+    ...args,
+    fileManager: {
+      trashFile: async (file: TFile) => {
+        await args.vault.delete(file);
+      },
+    } as never,
+  });
+}
 
 const repoRoot = path.resolve(new URL("..", import.meta.url).pathname);
 const DEFAULT_APP_KEY = "k671hqjipp2sdpl";
@@ -174,7 +187,7 @@ describe("live Dropbox sync engine E2E", () => {
       "case.md": "b",
     });
     const localCasePlan = createSyncPlan({
-      localFiles: await scanLocalVault(localCaseVault.asVault()),
+      localFiles: await scanLocalVault(localCaseVault.asVault(), ".obsidian"),
       remoteFiles: new Map(),
       state: emptyState(),
     });
@@ -240,7 +253,7 @@ async function buildPlan(
   client: DropboxClient,
 ): Promise<SyncPlan> {
   const [localFiles, remoteFiles] = await Promise.all([
-    scanLocalVault(vault.asVault()),
+    scanLocalVault(vault.asVault(), ".obsidian"),
     client.listAllFiles(rootPath),
   ]);
   return createSyncPlan({

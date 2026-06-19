@@ -1,6 +1,5 @@
-import { App, Modal, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, Modal, Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
 import type { DropboxFolderMetadata } from "./types";
-import { VAULTBOX_ICON } from "./icons";
 import type VaultboxPlugin from "./main";
 
 const SUPPORT_LINKS = {
@@ -111,12 +110,15 @@ export class VaultboxSettingTab extends PluginSettingTab {
   }
 
   private addHeader(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName("Vaultbox")
+      .setHeading();
+
     const header = containerEl.createDiv({ cls: "vaultbox-settings-header" });
     const icon = header.createDiv({ cls: "vaultbox-settings-logo" });
-    icon.innerHTML = VAULTBOX_ICON;
-    const text = header.createDiv();
-    text.createEl("h2", { text: "Vaultbox" });
-    text.createDiv({
+    icon.setAttr("aria-hidden", "true");
+    setIcon(icon, "vaultbox-logo");
+    header.createDiv({
       cls: "vaultbox-settings-tagline",
       text: "Dropbox folder sync for desktop and mobile vaults.",
     });

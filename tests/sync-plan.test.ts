@@ -12,8 +12,9 @@ import type { DropboxFileMetadata, SyncedFileState, VaultboxSyncState } from "..
 
 describe("sync planner", () => {
   it("excludes Obsidian configuration files from sync", () => {
-    expect(shouldSyncPath(".obsidian/app.json")).toBe(false);
-    expect(shouldSyncPath("Notes/A.md")).toBe(true);
+    expect(shouldSyncPath(".custom-obsidian/app.json", ".custom-obsidian")).toBe(false);
+    expect(shouldSyncPath(".obsidian/app.json", ".custom-obsidian")).toBe(true);
+    expect(shouldSyncPath("Notes/A.md", ".custom-obsidian")).toBe(true);
     expect(normalizePathKey("/Notes/A.md")).toBe("notes/a.md");
   });
 

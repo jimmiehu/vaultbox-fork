@@ -1,4 +1,4 @@
-import type { TFile, Vault } from "obsidian";
+import type { FileManager, TFile, Vault } from "obsidian";
 import { normalizeDropboxPath } from "./dropbox";
 import {
   getDropboxContentHash,
@@ -56,6 +56,7 @@ class UploadRunError extends Error {
 
 export async function executeSyncPlan(args: {
   vault: Vault;
+  fileManager: FileManager;
   dropbox: SyncDropboxClient;
   rootPath: string;
   plan: SyncPlan;
@@ -134,6 +135,7 @@ export async function executeSyncPlan(args: {
     try {
       await applyOperation({
         vault: args.vault,
+        fileManager: args.fileManager,
         dropbox: args.dropbox,
         rootPath: args.rootPath,
         operation,
@@ -221,6 +223,7 @@ async function uploadLocalFiles(args: {
 
 async function applyOperation(args: {
   vault: Vault;
+  fileManager: FileManager;
   dropbox: SyncDropboxClient;
   rootPath: string;
   operation: SyncOperation;
@@ -290,6 +293,7 @@ async function uploadLocalFile(args: {
 
 async function downloadRemoteFile(args: {
   vault: Vault;
+  fileManager: FileManager;
   dropbox: SyncDropboxClient;
   rootPath: string;
   operation: Extract<SyncOperation, { kind: "download" }>;
@@ -326,7 +330,7 @@ async function downloadRemoteFile(args: {
         throw error;
       }
 
-      await args.vault.delete(file);
+      await args.fileManager.trashFile(file);
       await ensureParentFolders(args.vault, localPath);
       await args.vault.createBinary(localPath, content);
     }
@@ -367,6 +371,7 @@ async function deleteRemoteFile(args: {
 
 async function deleteLocalFile(args: {
   vault: Vault;
+  fileManager: FileManager;
   dropbox: SyncDropboxClient;
   rootPath: string;
   operation: Extract<SyncOperation, { kind: "delete-local" }>;
@@ -385,7 +390,7 @@ async function deleteLocalFile(args: {
 
   const remotePath = toDropboxPath(args.rootPath, args.operation.previous.path);
   await assertRemoteMissing(args.dropbox, remotePath, args.operation.previous.path);
-  await args.vault.delete(file);
+  await args.fileManager.trashFile(file);
   delete args.files[args.operation.previous.pathLower];
 }
 

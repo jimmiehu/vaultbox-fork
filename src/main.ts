@@ -113,7 +113,13 @@ export default class VaultboxPlugin extends Plugin {
   }
 
   async loadPluginData(): Promise<VaultboxPluginData> {
-    return ((await this.loadData()) as VaultboxPluginData | null) ?? {};
+    const data: unknown = await this.loadData();
+
+    if (!data || typeof data !== "object") {
+      return {};
+    }
+
+    return data as VaultboxPluginData;
   }
 
   getDebugLogText(): string {
@@ -266,6 +272,7 @@ export default class VaultboxPlugin extends Plugin {
       }
       const result = await executeSyncPlan({
         vault: this.app.vault,
+        fileManager: this.app.fileManager,
         dropbox: this.createDropboxClient(),
         rootPath: normalizeDropboxPath(this.settings.selectedFolderPath),
         plan,
@@ -333,7 +340,7 @@ export default class VaultboxPlugin extends Plugin {
     await this.saveSettings();
 
     const [localFiles, remoteFiles] = await Promise.all([
-      scanLocalVault(this.app.vault),
+      scanLocalVault(this.app.vault, this.app.vault.configDir),
       this.createDropboxClient().listAllFiles(folderPath),
     ]);
 
