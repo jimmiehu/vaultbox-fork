@@ -163,7 +163,7 @@ export class DropboxClient {
         headers: {
           Authorization: `Bearer ${await this.tokenProvider.getAccessToken()}`,
           "Content-Type": body ? "application/octet-stream" : "",
-          "Dropbox-API-Arg": JSON.stringify(args),
+          "Dropbox-API-Arg": encodeDropboxApiArg(args),
         },
         body,
         throw: false,
@@ -187,6 +187,11 @@ export class DropboxClient {
 
     throw new Error(`Dropbox ${endpoint} failed after retrying.`);
   }
+}
+
+export function encodeDropboxApiArg(args: unknown): string {
+  return JSON.stringify(args).replace(/[\u007f-\uffff]/g, (character) =>
+    `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
 }
 
 export function normalizeDropboxPath(path: string): string {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setRequestUrlMock } from "./mocks/obsidian";
-import { DropboxClient, normalizeDropboxPath } from "../src/dropbox";
+import { DropboxClient, encodeDropboxApiArg, normalizeDropboxPath } from "../src/dropbox";
 
 describe("DropboxClient", () => {
   afterEach(() => {
@@ -160,6 +160,34 @@ describe("DropboxClient", () => {
 
     const client = new DropboxClient({ getAccessToken: async () => "token" });
     await expect(client.download("/A.md")).resolves.toBe(content);
+  });
+
+  it("escapes non-ASCII characters in Dropbox content API headers", async () => {
+    const encoded = encodeDropboxApiArg({ path: "/Notes/Project 🚀.md" });
+
+    expect(encoded).toBe('{"path":"/Notes/Project \\ud83d\\ude80.md"}');
+    expect(/^[\x00-\x7f]*$/.test(encoded)).toBe(true);
+    expect(JSON.parse(encoded)).toEqual({ path: "/Notes/Project 🚀.md" });
+  });
+
+  it("uses ASCII-safe Dropbox API args for downloads with emoji paths", async () => {
+    const content = new Uint8Array([1, 2, 3]).buffer;
+    const request = vi.fn(async () => ({
+      status: 200,
+      text: "",
+      arrayBuffer: content,
+      json: {},
+      headers: {},
+    }));
+    setRequestUrlMock(request);
+
+    const client = new DropboxClient({ getAccessToken: async () => "token" });
+    await expect(client.download("/Notes/Project 🚀.md")).resolves.toBe(content);
+
+    const firstCall = request.mock.calls[0] as Array<{ headers?: Record<string, string> }> | undefined;
+    const header = String(firstCall?.[0].headers?.["Dropbox-API-Arg"]);
+    expect(/^[\x00-\x7f]*$/.test(header)).toBe(true);
+    expect(JSON.parse(header)).toEqual({ path: "/Notes/Project 🚀.md" });
   });
 
   it("lists all files recursively for sync snapshots", async () => {
