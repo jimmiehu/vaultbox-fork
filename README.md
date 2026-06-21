@@ -58,6 +58,8 @@ Vaultbox requests Dropbox file metadata and content read/write scopes. The Dropb
 
 Vaultbox does not read from or write to the system clipboard.
 
+See the [privacy policy](docs/privacy-policy.md) for more detail.
+
 ## Support
 
 Vaultbox is free to use. If it saves you time and you want to support ongoing development, you can sponsor the project on [GitHub Sponsors](https://github.com/sponsors/grumpydev) or send a one-off tip on [Ko-fi](https://ko-fi.com/grumpydev).
