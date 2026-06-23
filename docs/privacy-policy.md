@@ -16,7 +16,6 @@ Vaultbox uses Dropbox OAuth with PKCE to connect to the user's Dropbox account. 
 
 - `account_info.read`
 - `files.metadata.read`
-- `files.metadata.write`
 - `files.content.read`
 - `files.content.write`
 

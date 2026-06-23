@@ -1,49 +1,58 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">Vaultbox</title>
-  <desc id="desc">A faceted purple vault character under an open blue box.</desc>
+  <desc id="desc">A friendly faceted purple vault character sitting in a cardboard box with a small cloud mark.</desc>
   <defs>
-    <linearGradient id="blue" x1="96" y1="90" x2="416" y2="220" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#20A5FF"/>
-      <stop offset="1" stop-color="#045FE8"/>
+    <linearGradient id="card-front" x1="112" y1="258" x2="302" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E5A84E"/>
+      <stop offset=".62" stop-color="#C47A2E"/>
+      <stop offset="1" stop-color="#9D5A22"/>
     </linearGradient>
-    <linearGradient id="blue-dark" x1="166" y1="156" x2="346" y2="236" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#074EE4"/>
-      <stop offset="1" stop-color="#0439B8"/>
+    <linearGradient id="card-side" x1="298" y1="260" x2="442" y2="430" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B96E2A"/>
+      <stop offset="1" stop-color="#8B4A1F"/>
     </linearGradient>
-    <linearGradient id="gem" x1="154" y1="222" x2="358" y2="420" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#CDBBFF"/>
-      <stop offset=".55" stop-color="#8B54E8"/>
-      <stop offset="1" stop-color="#4A22B9"/>
+    <linearGradient id="card-inside" x1="118" y1="214" x2="414" y2="288" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD07B"/>
+      <stop offset=".5" stop-color="#C98030"/>
+      <stop offset="1" stop-color="#704019"/>
     </linearGradient>
-    <linearGradient id="word" x1="98" y1="455" x2="414" y2="455" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#6A38D4"/>
-      <stop offset=".5" stop-color="#7135D8"/>
-      <stop offset="1" stop-color="#0672F0"/>
+    <linearGradient id="gem" x1="154" y1="76" x2="358" y2="328" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E7C9FF"/>
+      <stop offset=".5" stop-color="#9652F1"/>
+      <stop offset="1" stop-color="#4B20B8"/>
     </linearGradient>
   </defs>
 
-  <g>
-    <path d="M94 105 214 52l42 34-122 56-40-37Z" fill="url(#blue)"/>
-    <path d="M418 105 298 52l-42 34 122 56 40-37Z" fill="url(#blue)"/>
-    <path d="M90 164 214 108l42 34-124 57-42-35Z" fill="url(#blue)"/>
-    <path d="M422 164 298 108l-42 34 124 57 42-35Z" fill="url(#blue)"/>
-    <path d="M134 142 256 86l122 56-122 57-122-57Z" fill="url(#blue-dark)" opacity=".9"/>
-
-    <path d="M154 196 256 143l102 53 20 100-50 69-72 27-72-27-50-69 20-100Z" fill="url(#gem)"/>
-    <path d="M154 196 214 222l42-79 42 79 60-26-102-53-102 53Z" fill="#B898FF" opacity=".8"/>
-    <path d="M184 365 214 222l42-79 42 79 30 143-72 27-72-27Z" fill="#BCA7FF" opacity=".45"/>
-    <path d="M214 222 256 143l42 79-4 88-38 82-38-82-4-88Z" fill="#F0E9FF" opacity=".55"/>
-    <path d="M134 296 184 365l34-55-4-88-60-26-20 100Z" fill="#733CD9" opacity=".7"/>
-    <path d="M378 296 328 365l-34-55 4-88 60-26 20 100Z" fill="#6332D4" opacity=".7"/>
-    <path d="M184 365 256 392l-38-82-34 55Z" fill="#5221B8" opacity=".85"/>
-    <path d="M328 365 256 392l38-82 34 55Z" fill="#6F43D6" opacity=".75"/>
-
-    <ellipse cx="224" cy="260" rx="13" ry="18" fill="#16003D"/>
-    <ellipse cx="288" cy="260" rx="13" ry="18" fill="#16003D"/>
-    <circle cx="220" cy="253" r="6" fill="#fff"/>
-    <circle cx="284" cy="253" r="6" fill="#fff"/>
-    <path d="M239 279c9 13 25 13 34 0" fill="none" stroke="#16003D" stroke-linecap="round" stroke-width="8"/>
+  <g stroke="#1A0B2F" stroke-linejoin="round" stroke-width="10">
+    <path d="M86 244 256 184l170 60-170 58L86 244Z" fill="url(#card-inside)"/>
+    <path d="M86 244 256 302v158L86 392V244Z" fill="url(#card-front)"/>
+    <path d="M426 244 256 302v158l170-68V244Z" fill="url(#card-side)"/>
   </g>
 
-  <text x="256" y="466" fill="url(#word)" font-family="Nunito, Avenir Next, Arial Rounded MT Bold, Arial, sans-serif" font-size="78" font-weight="900" letter-spacing="-2" text-anchor="middle">vaultbox</text>
+  <g fill="none" stroke="#7A431B" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" opacity=".75">
+    <path d="M122 266 256 312 390 266"/>
+    <path d="M256 314v132"/>
+    <path d="M134 306h72"/>
+    <path d="M330 310h50"/>
+  </g>
+
+  <path d="M182 236 256 94l74 142 14 78-88 40-88-40 14-78Z" fill="url(#gem)" stroke="#1A0B2F" stroke-linejoin="round" stroke-width="12"/>
+  <g stroke-linejoin="round">
+    <path d="M182 236 222 158l34-64 34 64 40 78-74 118-74-118Z" fill="#B27AFF" opacity=".45"/>
+    <path d="M222 158 256 94l34 64-34 196-34-196Z" fill="#F2DDFF" opacity=".55"/>
+    <path d="M182 236 222 158h68l40 78-74 118-74-118Z" fill="none" stroke="#D6B7FF" stroke-width="4" opacity=".7"/>
+    <path d="M168 314 256 354l88-40" fill="none" stroke="#38106E" stroke-width="5" opacity=".45"/>
+  </g>
+
+  <g>
+    <ellipse cx="224" cy="232" rx="13" ry="18" fill="#16003D"/>
+    <ellipse cx="288" cy="232" rx="13" ry="18" fill="#16003D"/>
+    <circle cx="220" cy="225" r="6" fill="#fff"/>
+    <circle cx="284" cy="225" r="6" fill="#fff"/>
+    <path d="M239 252c9 13 25 13 34 0" fill="none" stroke="#16003D" stroke-linecap="round" stroke-width="8"/>
+  </g>
+
+  <g fill="none" stroke="#6D3A18" stroke-linecap="round" stroke-linejoin="round" stroke-width="9">
+    <path d="M128 382c0-15 13-26 28-21 7-15 29-17 40-3 13-6 30 4 30 22 0 16-13 26-30 26h-48c-12 0-20-10-20-24Z"/>
+  </g>
 </svg>

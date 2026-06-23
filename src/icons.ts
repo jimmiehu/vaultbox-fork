@@ -1,13 +1,12 @@
 export const VAULTBOX_ICON_PATHS = `
-<path d="M12 26 38 12l12 10-26 14-12-10Z" fill="currentColor" opacity=".35"/>
-<path d="M88 26 62 12 50 22l26 14 12-10Z" fill="currentColor" opacity=".35"/>
-<path d="M10 43 38 29l12 10-28 14-12-10Z" fill="currentColor" opacity=".65"/>
-<path d="M90 43 62 29 50 39l28 14 12-10Z" fill="currentColor" opacity=".65"/>
-<path d="M25 50 50 38l25 12 5 29-30 13-30-13 5-29Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="6"/>
-<path d="M25 50 38 78l12 14 12-14 13-28" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="5"/>
-<path d="M38 78h24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="5"/>
-<path d="M41 58v7M59 58v7" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="6"/>
-<path d="M43 72c4 5 10 5 14 0" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="5"/>
+<path d="M15 49 50 37l35 12-35 13-35-13Z" fill="currentColor" opacity=".25"/>
+<path d="M15 49 50 62v27L15 75V49Z" fill="currentColor" opacity=".5"/>
+<path d="M85 49 50 62v27l35-14V49Z" fill="currentColor" opacity=".35"/>
+<path d="M36 45 50 14l14 31 3 17-17 9-17-9 3-17Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="6"/>
+<path d="M36 45 44 30l6-16 6 16 8 15-14 26-14-26Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4" opacity=".75"/>
+<path d="M43 47v5M57 47v5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="5"/>
+<path d="M45 58c3 4 7 4 10 0" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="4"/>
+<path d="M25 75c0-3 3-5 6-4 1-3 6-4 8-1 3-1 6 1 6 5 0 3-3 5-6 5H29c-2 0-4-2-4-5Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" opacity=".75"/>
 `;
 
 export const VAULTBOX_ICON = `

@@ -54,7 +54,7 @@ That testing does not remove the need for backups, especially while the plugin i
 
 Vaultbox enumerates vault files so it can compare local paths with the selected Dropbox folder and decide what needs to sync. It deliberately excludes `.obsidian/**` so plugin settings, tokens, and device-specific Obsidian state are not uploaded as notes.
 
-Vaultbox requests Dropbox file metadata and content read/write scopes. The Dropbox app uses Full Dropbox access because the core use case is selecting an existing folder that may already be managed by the Dropbox desktop app. Vaultbox only operates inside the folder you select in settings.
+Vaultbox requests Dropbox account info, file metadata read, and file content read/write scopes. The Dropbox app uses Full Dropbox access because the core use case is selecting an existing folder that may already be managed by the Dropbox desktop app. Vaultbox only operates inside the folder you select in settings.
 
 Vaultbox does not read from or write to the system clipboard.
 
@@ -103,7 +103,7 @@ If you are creating your own Dropbox API app for development, configure it with:
 - Scoped access.
 - Full Dropbox access.
 - PKCE/public clients enabled.
-- Scopes for account info, file metadata, and file content read/write.
+- Scopes for account info, file metadata read, and file content read/write.
 
 Vaultbox uses the OAuth code flow without a redirect URI. Dropbox displays an authorization code on screen after approval; paste that code into Vaultbox. The plugin exchanges the code with the PKCE verifier and stores the refresh token in local plugin data.
 
