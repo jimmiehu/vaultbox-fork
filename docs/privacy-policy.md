@@ -14,7 +14,6 @@ Vaultbox does not sell personal data, does not run advertising, does not use ana
 
 Vaultbox uses Dropbox OAuth with PKCE to connect to the user's Dropbox account. The plugin requests these Dropbox scopes:
 
-- `account_info.read`
 - `files.metadata.read`
 - `files.content.read`
 - `files.content.write`

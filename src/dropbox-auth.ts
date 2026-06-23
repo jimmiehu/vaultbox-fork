@@ -5,7 +5,6 @@ const DROPBOX_AUTHORIZE_URL = "https://www.dropbox.com/oauth2/authorize";
 const DROPBOX_TOKEN_URL = "https://api.dropboxapi.com/oauth2/token";
 
 const DEFAULT_SCOPES = [
-  "account_info.read",
   "files.metadata.read",
   "files.content.read",
   "files.content.write",
