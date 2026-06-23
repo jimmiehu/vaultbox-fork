@@ -1,8 +1,7 @@
 export const VAULTBOX_ICON_PATHS = `
-<path d="M16 51 50 39l34 12-34 13-34-13Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="5"/>
-<path d="M16 51v23l34 15 34-15V51" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="5"/>
-<path d="M50 64v25" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="5"/>
-<path d="M38 44 50 15l12 29 4 18-16 10-16-10 4-18Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="5"/>
+<path d="M16 58v18l34 13 34-13V58" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="5"/>
+<path d="M16 58 34 64M66 64 84 58M50 70v19" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="5"/>
+<path d="M36 54 50 15l14 39-14 10-14-10Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="5"/>
 `;
 
 export const VAULTBOX_ICON = `
