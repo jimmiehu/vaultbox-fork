@@ -110,6 +110,73 @@ describe("DropboxClient", () => {
     ]);
   });
 
+  it("continues Dropbox folder listings when the picker result is paginated", async () => {
+    const request = vi.fn(async (args: { url: string }) => {
+      if (args.url.endsWith("/files/list_folder/continue")) {
+        return {
+          status: 200,
+          text: "",
+          json: {
+            entries: [
+              {
+                ".tag": "folder",
+                name: "movie-factory",
+                path_display: "/movie-factory",
+                path_lower: "/movie-factory",
+                id: "id:movie-factory",
+              },
+              {
+                ".tag": "file",
+                name: "A.md",
+                path_display: "/A.md",
+                path_lower: "/a.md",
+                id: "id:file",
+                rev: "rev-a",
+                content_hash: "hash-a",
+              },
+            ],
+            cursor: "cursor-2",
+            has_more: false,
+          },
+          headers: {},
+        };
+      }
+
+      return {
+        status: 200,
+        text: "",
+        json: {
+          entries: [
+            {
+              ".tag": "folder",
+              name: "Archive",
+              path_display: "/Archive",
+              path_lower: "/archive",
+              id: "id:archive",
+            },
+          ],
+          cursor: "cursor-1",
+          has_more: true,
+        },
+        headers: {},
+      };
+    });
+    setRequestUrlMock(request);
+
+    const client = new DropboxClient({ getAccessToken: async () => "token" });
+    await expect(client.listFolders("")).resolves.toEqual([
+      expect.objectContaining({ pathDisplay: "/Archive" }),
+      expect.objectContaining({ pathDisplay: "/movie-factory" }),
+    ]);
+
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        url: "https://api.dropboxapi.com/2/files/list_folder/continue",
+      }),
+    );
+  });
+
   it("uses update mode with rev for guarded uploads", async () => {
     const content = new Uint8Array([0, 195, 169, 255]).buffer;
     const request = vi.fn(async () => ({
