@@ -1,6 +1,6 @@
 {
-  "id": "vaultbox",
-  "name": "Vaultbox",
+  "id": "vaultbox-fork",
+  "name": "Vaultbox (Fork)",
   "version": "1.0.6",
   "minAppVersion": "1.12.3",
   "description": "Sync your vault directly with a selected Dropbox folder on desktop and mobile.",
