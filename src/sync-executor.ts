@@ -335,7 +335,20 @@ async function downloadRemoteFile(args: {
       await args.vault.createBinary(localPath, content);
     }
   } else {
-    await args.vault.createBinary(localPath, content);
+    try {
+      await args.vault.createBinary(localPath, content);
+    } catch (error) {
+      if (!isFileAlreadyExistsError(error)) {
+        throw error;
+      }
+
+      // The file is on disk but missing from Obsidian's index (e.g. after an interrupted
+      // sync left it partially written). Remove the stale on-disk copy and recreate it
+      // through the vault API so the index stays consistent — otherwise the next scan sees
+      // "local missing" for a file that is really there and could plan a spurious remote delete.
+      await args.vault.adapter.remove(localPath);
+      await args.vault.createBinary(localPath, content);
+    }
   }
 
   args.files[normalizePathKey(localPath)] = {

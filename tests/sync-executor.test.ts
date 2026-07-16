@@ -250,6 +250,35 @@ describe("sync executor", () => {
     });
   });
 
+  it("recreates a downloaded file that exists on disk but is missing from the index", async () => {
+    const newHash = await hash("remote new");
+    const vault = new FakeVault({});
+    // getFileByPath returns null (not indexed) yet createBinary reports the file already
+    // exists on disk — exactly the state an interrupted sync leaves behind.
+    vault.failNextCreateBinary = new Error("File already exists.");
+    const dropbox = new FakeDropbox({ downloadContent: bytes("remote new") });
+
+    const result = await executeSyncPlan({
+      vault: vault.asVault(),
+      dropbox,
+      rootPath: "/Vault",
+      currentState: emptyState(),
+      plan: plan([
+        {
+          kind: "download",
+          path: "Folder/A.md",
+          remote: remoteFile("Folder/A.md", newHash, "rev-new"),
+        },
+      ]),
+    });
+
+    expect(vault.text("Folder/A.md")).toBe("remote new");
+    expect(result.state.files["folder/a.md"]).toMatchObject({
+      localContentHash: newHash,
+      remoteRev: "rev-new",
+    });
+  });
+
   it("refuses to download over a local folder", async () => {
     const contentHash = await hash("remote file");
     const vault = new FakeVault({});
@@ -468,6 +497,7 @@ class FakeVault {
   private readonly files = new Map<string, ArrayBuffer>();
   private readonly folders = new Set<string>();
   failNextModifyBinary: Error | null = null;
+  failNextCreateBinary: Error | null = null;
 
   constructor(initialFiles: Record<string, string>) {
     for (const [path, value] of Object.entries(initialFiles)) {
@@ -501,12 +531,22 @@ class FakeVault {
         this.files.set(file.path, content);
       },
       createBinary: async (path: string, content: ArrayBuffer) => {
+        if (this.failNextCreateBinary) {
+          const error = this.failNextCreateBinary;
+          this.failNextCreateBinary = null;
+          throw error;
+        }
         this.addParentFolders(path);
         this.files.set(path, content);
         return this.file(path);
       },
       delete: async (file: { path: string }) => {
         this.files.delete(file.path);
+      },
+      adapter: {
+        remove: async (path: string) => {
+          this.files.delete(path);
+        },
       },
     } as never;
   }
