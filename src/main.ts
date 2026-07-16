@@ -1,5 +1,12 @@
 import { addIcon, Notice, Plugin } from "obsidian";
 import {
+  AutoSyncScheduler,
+  getPlanDisposition,
+  shouldSyncOnStartup,
+  SyncLock,
+  type SyncTrigger,
+} from "./auto-sync";
+import {
   createDropboxAuthSession,
   exchangeDropboxAuthCode,
   refreshDropboxAccessToken,
@@ -33,6 +40,14 @@ export default class VaultboxPlugin extends Plugin {
   syncState: VaultboxSyncState = { files: {}, lastSyncedAt: 0 };
   private ribbonIconEl: HTMLElement | null = null;
   private debugLog!: DebugLog;
+  private readonly syncLock = new SyncLock();
+  private readonly autoSyncScheduler = new AutoSyncScheduler({
+    runSync: (trigger) => this.runSync(trigger),
+    setInterval: (handler, intervalMs) => window.setInterval(handler, intervalMs),
+    clearInterval: (id) => window.clearInterval(id),
+    onIntervalCreated: (id) => this.registerInterval(id),
+    onTickError: (error) => this.handleAutoSyncError(error),
+  });
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -43,7 +58,7 @@ export default class VaultboxPlugin extends Plugin {
 
     addIcon("vaultbox-logo", VAULTBOX_ICON_PATHS);
     this.ribbonIconEl = this.addRibbonIcon("vaultbox-logo", "Sync with Vaultbox", () => {
-      void this.syncNow();
+      void this.runSync("manual");
     });
     this.ribbonIconEl.classList.add("vaultbox-ribbon-icon");
     this.keepRibbonIconAtEnd();
@@ -51,6 +66,10 @@ export default class VaultboxPlugin extends Plugin {
       this.keepRibbonIconAtEnd();
       window.setTimeout(() => this.keepRibbonIconAtEnd(), 250);
       window.setTimeout(() => this.keepRibbonIconAtEnd(), 1_500);
+      this.reconfigureAutoSync();
+      if (shouldSyncOnStartup(this.settings)) {
+        void this.runSync("startup").catch((error) => this.handleAutoSyncError(error));
+      }
     });
 
     this.addCommand({
@@ -73,11 +92,19 @@ export default class VaultboxPlugin extends Plugin {
       id: "sync-now",
       name: "Sync with Dropbox",
       callback: () => {
-        void this.syncNow();
+        void this.runSync("manual");
       },
     });
 
     this.addSettingTab(new VaultboxSettingTab(this.app, this));
+  }
+
+  onunload(): void {
+    this.autoSyncScheduler.stop();
+  }
+
+  reconfigureAutoSync(): void {
+    this.autoSyncScheduler.reconfigure(this.settings);
   }
 
   keepRibbonIconAtEnd(): void {
@@ -222,24 +249,40 @@ export default class VaultboxPlugin extends Plugin {
     new Notice(`Vaultbox folder validated: ${metadata.pathDisplay || "/"}`);
   }
 
-  async syncNow(): Promise<void> {
+  async runSync(trigger: SyncTrigger): Promise<void> {
+    const ran = await this.syncLock.runExclusive(() => this.performSync(trigger));
+    if (!ran) {
+      this.debugLog.write("sync.skipped", { trigger, reason: "sync-in-progress" });
+    }
+  }
+
+  private handleAutoSyncError(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    this.debugLog.write("sync.tick-failed", { message });
+    new Notice(`Vaultbox auto-sync failed: ${message}`);
+  }
+
+  private async performSync(trigger: SyncTrigger): Promise<void> {
     const hadExistingSyncState = Object.keys(this.syncState.files).length > 0;
     let progressNotice: Notice | null = null;
 
     try {
       this.debugLog.write("sync.start", {
+        trigger,
         folderPath: this.settings.selectedFolderPath,
-        confirm: this.settings.syncMode === "manual" && this.settings.confirmBeforeManualSync,
+        confirm: this.settings.confirmBeforeManualSync,
       });
       this.settings.lastSyncStartedAt = Date.now();
-      progressNotice = new Notice("Vaultbox: preparing sync plan...", 0);
+      if (trigger === "manual") {
+        progressNotice = new Notice("Vaultbox: preparing sync plan...", 0);
+      }
       const plan = await this.buildSyncPlan();
       if (plan.conflicts.length > 0) {
         const message = formatSyncPlan(plan, "Sync blocked");
         this.settings.lastSyncSummary = message;
         this.debugLog.write("sync.conflicts", plan.summary);
         await this.saveSettings();
-        progressNotice.hide();
+        progressNotice?.hide();
         new Notice(message);
         return;
       }
@@ -249,13 +292,26 @@ export default class VaultboxPlugin extends Plugin {
         this.settings.lastSyncSummary = "No sync required. Everything is up to date.";
         this.debugLog.write("sync.noop", plan.summary);
         await this.saveSettings();
-        progressNotice.hide();
-        new Notice("No sync required. Everything is up to date.");
+        progressNotice?.hide();
+        if (trigger === "manual") {
+          new Notice("No sync required. Everything is up to date.");
+        }
         return;
       }
 
-      if (this.settings.syncMode === "manual" && this.settings.confirmBeforeManualSync) {
-        progressNotice.hide();
+      const disposition = getPlanDisposition(trigger, this.settings.confirmBeforeManualSync);
+      if (disposition === "notify") {
+        const pendingChanges = getPlanChangeCount(plan);
+        const message = `Vaultbox: ${pendingChanges} change${pendingChanges === 1 ? "" : "s"} pending. Run a manual sync to review and apply.`;
+        this.settings.lastSyncSummary = message;
+        this.debugLog.write("sync.pending", { trigger, ...plan.summary });
+        await this.saveSettings();
+        new Notice(message);
+        return;
+      }
+
+      if (disposition === "confirm") {
+        progressNotice?.hide();
         progressNotice = null;
         const confirmed = window.confirm(`${formatSyncPlan(plan, "Confirm sync")}\n\nApply these changes now?`);
         if (!confirmed) {
@@ -285,6 +341,7 @@ export default class VaultboxPlugin extends Plugin {
       this.settings.lastSyncCompletedAt = Date.now();
       this.settings.lastSyncSummary = `Sync complete. Applied ${result.applied} change${result.applied === 1 ? "" : "s"}.`;
       this.debugLog.write("sync.complete", {
+        trigger,
         applied: result.applied,
         summary: plan.summary,
       });
@@ -298,7 +355,7 @@ export default class VaultboxPlugin extends Plugin {
       }
       const message = error instanceof Error ? error.message : String(error);
       this.settings.lastSyncSummary = `Failed: ${message}`;
-      this.debugLog.write("sync.failed", { message });
+      this.debugLog.write("sync.failed", { trigger, message });
       await this.saveSettings();
       progressNotice?.hide();
       new Notice(message);

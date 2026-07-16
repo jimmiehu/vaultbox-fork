@@ -127,7 +127,7 @@ export class VaultboxSettingTab extends PluginSettingTab {
   private addSyncSettings(containerEl: HTMLElement): void {
     new Setting(containerEl)
       .setName("Sync mode")
-      .setDesc("Manual and automatic sync will use the same plan-first engine as Octosync.")
+      .setDesc("Manual runs only when you start a sync. Automatic also syncs on startup and on a timed interval.")
       .addDropdown((dropdown) => {
         dropdown
           .addOption("manual", "Manual")
@@ -136,6 +136,7 @@ export class VaultboxSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.syncMode = value === "automatic" ? "automatic" : "manual";
             await this.plugin.saveSettings();
+            this.plugin.reconfigureAutoSync();
             this.display();
           });
       });
@@ -143,43 +144,47 @@ export class VaultboxSettingTab extends PluginSettingTab {
     if (this.plugin.settings.syncMode === "automatic") {
       new Setting(containerEl)
         .setName("Sync on startup")
-        .setDesc("Planned for automatic sync mode.")
+        .setDesc("Run a sync after Obsidian finishes loading.")
         .addToggle((toggle) => {
           toggle
             .setValue(this.plugin.settings.syncOnStartup)
             .onChange(async (value) => {
               this.plugin.settings.syncOnStartup = value;
               await this.plugin.saveSettings();
+              this.plugin.reconfigureAutoSync();
             });
         });
 
       new Setting(containerEl)
         .setName("Sync interval")
-        .setDesc("Minutes between automatic sync attempts.")
+        .setDesc("Minutes between automatic syncs while Obsidian is open. Set 0 to sync only on startup.")
         .addText((text) => {
           text
             .setValue(String(this.plugin.settings.syncIntervalMinutes))
             .onChange(async (value) => {
               this.plugin.settings.syncIntervalMinutes = Math.max(0, Number.parseInt(value, 10) || 0);
               await this.plugin.saveSettings();
+              this.plugin.reconfigureAutoSync();
             });
           text.inputEl.type = "number";
           text.inputEl.min = "0";
           text.inputEl.step = "1";
         });
-    } else {
-      new Setting(containerEl)
-        .setName("Confirm before sync")
-        .setDesc("Build the sync plan first, then ask before applying changes.")
-        .addToggle((toggle) => {
-          toggle
-            .setValue(this.plugin.settings.confirmBeforeManualSync)
-            .onChange(async (value) => {
-              this.plugin.settings.confirmBeforeManualSync = value;
-              await this.plugin.saveSettings();
-            });
-        });
     }
+
+    new Setting(containerEl)
+      .setName("Confirm before sync")
+      .setDesc(
+        "Build the sync plan first, then ask before applying changes. With automatic sync, pending changes only show a notification and are applied when you run a manual sync.",
+      )
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.confirmBeforeManualSync)
+          .onChange(async (value) => {
+            this.plugin.settings.confirmBeforeManualSync = value;
+            await this.plugin.saveSettings();
+          });
+      });
 
     new Setting(containerEl)
       .setName("Excluded paths")
@@ -295,7 +300,7 @@ export class VaultboxSettingTab extends PluginSettingTab {
           .onClick(async () => {
             button.setDisabled(true);
             button.setButtonText("Syncing...");
-            await this.plugin.syncNow();
+            await this.plugin.runSync("manual");
             this.display();
           });
       });

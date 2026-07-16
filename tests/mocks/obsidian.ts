@@ -4,6 +4,12 @@ export class Notice {
   constructor(message: string) {
     Notice.messages.push(message);
   }
+
+  setMessage(message: string): void {
+    Notice.messages.push(message);
+  }
+
+  hide(): void {}
 }
 
 type RequestUrl = (request: {
@@ -38,5 +44,7 @@ export class Plugin {}
 export class PluginSettingTab {}
 export class Setting {}
 export class App {}
+export class Modal {}
 
 export function addIcon(): void {}
+export function setIcon(): void {}
