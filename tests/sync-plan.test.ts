@@ -5,6 +5,7 @@ import {
   formatSyncPlan,
   getDropboxContentHash,
   normalizePathKey,
+  scanLocalVault,
   shouldSyncPath,
   type LocalFileSnapshot,
 } from "../src/sync-plan";
@@ -216,6 +217,134 @@ describe("sync planner", () => {
     expect(first).not.toBe(different);
   });
 });
+
+describe("selective sync excludes", () => {
+  it("rejects excluded folders and files from the sync gate", () => {
+    expect(shouldSyncPath("00-inbox/big.pdf", ".obsidian", ["00-inbox"])).toBe(false);
+    expect(shouldSyncPath("00-inbox/nested/deep.pdf", ".obsidian", ["00-inbox/"])).toBe(false);
+    expect(shouldSyncPath("00-inbox/big.pdf", ".obsidian", ["00-inbox/**"])).toBe(false);
+    expect(shouldSyncPath("00-Inbox/Big.pdf", ".obsidian", ["00-inbox"])).toBe(false);
+    expect(shouldSyncPath("Notes/Secret.md", ".obsidian", ["notes/secret.md"])).toBe(false);
+    expect(shouldSyncPath("00-inbox2/other.md", ".obsidian", ["00-inbox"])).toBe(true);
+    expect(shouldSyncPath("Notes/A.md", ".obsidian", ["00-inbox"])).toBe(true);
+    expect(shouldSyncPath("Notes/A.md", ".obsidian", ["", "   "])).toBe(true);
+    expect(shouldSyncPath(".obsidian/app.json", ".obsidian", ["00-inbox"])).toBe(false);
+  });
+
+  it("filters excluded paths from the local vault scan", async () => {
+    const local = await scanLocalVault(
+      fakeVault([
+        { path: "Notes/A.md", content: "a" },
+        { path: "00-inbox/big.pdf", content: "pdf" },
+      ]),
+      ".obsidian",
+      ["00-inbox"],
+    );
+
+    expect([...local.keys()]).toEqual(["notes/a.md"]);
+  });
+
+  it("filters excluded paths from the remote Dropbox snapshot", () => {
+    const remote = createRemoteFileSnapshot(
+      new Map([
+        ["/vault/notes/a.md", remoteFile("/Vault/Notes/A.md", "hash-a", "rev-a")],
+        ["/vault/00-inbox/big.pdf", remoteFile("/Vault/00-inbox/big.pdf", "hash-b", "rev-b")],
+      ]),
+      "/Vault",
+      { configDir: ".obsidian", excludePaths: ["00-inbox"] },
+    );
+
+    expect([...remote.keys()]).toEqual(["notes/a.md"]);
+  });
+
+  it("never uploads, downloads, or deletes one-sided excluded files", async () => {
+    const excludePaths = ["00-inbox"];
+    const localFiles = await scanLocalVault(
+      fakeVault([
+        { path: "00-inbox/local-only.pdf", content: "local" },
+        { path: "Notes/Keep.md", content: "keep" },
+      ]),
+      ".obsidian",
+      excludePaths,
+    );
+    const remoteFiles = createRemoteFileSnapshot(
+      new Map([
+        ["/vault/00-inbox/remote-only.pdf", remoteFile("/Vault/00-inbox/remote-only.pdf", "hash-r", "rev-r")],
+      ]),
+      "/Vault",
+      { configDir: ".obsidian", excludePaths },
+    );
+
+    const plan = createSyncPlan({ localFiles, remoteFiles });
+
+    expect(plan.operations.filter((operation) => operation.path.toLowerCase().includes("00-inbox"))).toEqual([]);
+    expect(plan.summary).toMatchObject({
+      uploads: 1,
+      downloads: 0,
+      remoteDeletes: 0,
+      localDeletes: 0,
+      conflicts: 0,
+    });
+    expect(plan.operations.map((operation) => `${operation.kind}:${operation.path}`)).toEqual([
+      "upload:Notes/Keep.md",
+    ]);
+  });
+
+  it("stops touching already-synced files once excluded, deleting neither side", async () => {
+    const excludePaths = ["00-inbox"];
+    const previous = state([synced("00-inbox/existing.pdf", "hash", "hash", "rev")]);
+    const localFiles = await scanLocalVault(
+      fakeVault([{ path: "00-inbox/existing.pdf", content: "pdf" }]),
+      ".obsidian",
+      excludePaths,
+    );
+    const remoteFiles = createRemoteFileSnapshot(
+      new Map([
+        ["/vault/00-inbox/existing.pdf", remoteFile("/Vault/00-inbox/existing.pdf", "hash", "rev")],
+      ]),
+      "/Vault",
+      { configDir: ".obsidian", excludePaths },
+    );
+
+    const plan = createSyncPlan({ state: previous, localFiles, remoteFiles });
+
+    expect(plan.summary).toMatchObject({
+      uploads: 0,
+      downloads: 0,
+      remoteDeletes: 0,
+      localDeletes: 0,
+      conflicts: 0,
+    });
+    expect(plan.operations).toEqual([
+      { kind: "noop", path: "00-inbox/existing.pdf", previous: previous.files["00-inbox/existing.pdf"] },
+    ]);
+  });
+
+  it("keeps syncing excluded paths when the exclude list is empty", async () => {
+    const localFiles = await scanLocalVault(
+      fakeVault([{ path: "00-inbox/big.pdf", content: "pdf" }]),
+      ".obsidian",
+    );
+
+    const plan = createSyncPlan({ localFiles, remoteFiles: new Map() });
+
+    expect(plan.summary.uploads).toBe(1);
+  });
+});
+
+function fakeVault(files: Array<{ path: string; content: string }>): Parameters<typeof scanLocalVault>[0] {
+  return {
+    getFiles: () => files.map((file) => ({ path: file.path, stat: { mtime: 1 } })),
+    readBinary: async (file: { path: string }) => {
+      const match = files.find((candidate) => candidate.path === file.path);
+      if (!match) {
+        throw new Error(`Missing local file: ${file.path}`);
+      }
+
+      return new TextEncoder().encode(match.content).buffer;
+    },
+  } as never;
+}
 
 function localMap(...files: LocalFileSnapshot[]): Map<string, LocalFileSnapshot> {
   return new Map(files.map((file) => [file.pathLower, file]));

@@ -83,8 +83,9 @@ export interface SyncPlan {
 export async function scanLocalVault(
   vault: Vault,
   configDir: string,
+  excludePaths: string[] = [],
 ): Promise<Map<string, LocalFileSnapshot>> {
-  const files = vault.getFiles().filter((file) => shouldSyncPath(file.path, configDir));
+  const files = vault.getFiles().filter((file) => shouldSyncPath(file.path, configDir, excludePaths));
   const snapshots = new Map<string, LocalFileSnapshot>();
 
   for (const file of files) {
@@ -254,6 +255,7 @@ function ancestorPathsInclusive(path: string): string[] {
 export function createRemoteFileSnapshot(
   remoteFiles: Map<string, DropboxFileMetadata>,
   rootPath: string,
+  filter: { configDir: string; excludePaths: string[] } = { configDir: "", excludePaths: [] },
 ): Map<string, DropboxFileMetadata> {
   const root = normalizeDropboxPath(rootPath);
   const rootLower = root.toLowerCase();
@@ -262,6 +264,10 @@ export function createRemoteFileSnapshot(
   for (const remote of remoteFiles.values()) {
     const relativeDisplay = stripRemoteRoot(remote.pathDisplay || remote.pathLower, root);
     const relativeLower = stripRemoteRoot(remote.pathLower, rootLower).toLowerCase();
+    if (!shouldSyncPath(relativeLower, filter.configDir, filter.excludePaths)) {
+      continue;
+    }
+
     const normalized: DropboxFileMetadata = {
       ...remote,
       pathDisplay: relativeDisplay,
@@ -321,7 +327,7 @@ export function isPlanEmpty(plan: SyncPlan): boolean {
     plan.summary.conflicts === 0;
 }
 
-export function shouldSyncPath(path: string, configDir: string): boolean {
+export function shouldSyncPath(path: string, configDir: string, excludePaths: string[] = []): boolean {
   const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
   if (!normalized || normalized.endsWith("/")) {
     return false;
@@ -331,7 +337,26 @@ export function shouldSyncPath(path: string, configDir: string): boolean {
   const normalizedConfigDir = configDir.replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
   return normalized !== normalizedConfigDir &&
     !normalized.startsWith(`${normalizedConfigDir}/`) &&
-    !parts.includes("");
+    !parts.includes("") &&
+    !isExcludedPath(normalized, excludePaths);
+}
+
+export function normalizeExcludePattern(pattern: string): string {
+  return pattern
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\/\*\*$/, "")
+    .toLowerCase();
+}
+
+function isExcludedPath(normalizedPath: string, excludePaths: string[]): boolean {
+  const pathLower = normalizedPath.toLowerCase();
+  return excludePaths.some((pattern) => {
+    const normalizedPattern = normalizeExcludePattern(pattern);
+    return normalizedPattern !== "" &&
+      (pathLower === normalizedPattern || pathLower.startsWith(`${normalizedPattern}/`));
+  });
 }
 
 export function normalizePathKey(path: string): string {

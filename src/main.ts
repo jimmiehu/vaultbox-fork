@@ -340,13 +340,16 @@ export default class VaultboxPlugin extends Plugin {
     await this.saveSettings();
 
     const [localFiles, remoteFiles] = await Promise.all([
-      scanLocalVault(this.app.vault, this.app.vault.configDir),
+      scanLocalVault(this.app.vault, this.app.vault.configDir, this.settings.excludePaths),
       this.createDropboxClient().listAllFiles(folderPath),
     ]);
 
     return createSyncPlan({
       localFiles,
-      remoteFiles: createRemoteFileSnapshot(remoteFiles, folderPath),
+      remoteFiles: createRemoteFileSnapshot(remoteFiles, folderPath, {
+        configDir: this.app.vault.configDir,
+        excludePaths: this.settings.excludePaths,
+      }),
       state: this.syncState,
     });
   }

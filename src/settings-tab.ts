@@ -182,6 +182,25 @@ export class VaultboxSettingTab extends PluginSettingTab {
     }
 
     new Setting(containerEl)
+      .setName("Excluded paths")
+      .setDesc(
+        "One vault-relative path per line. Each entry excludes that folder (or file) and everything under it, e.g. 00-inbox. Matching is case-insensitive; a trailing / or /** is allowed, other wildcards are not supported. Excluded files are invisible to sync: never uploaded, downloaded, or deleted on either side.",
+      )
+      .addTextArea((text) => {
+        text
+          .setPlaceholder("00-inbox\nAttachments/Large")
+          .setValue(this.plugin.settings.excludePaths.join("\n"))
+          .onChange(async (value) => {
+            this.plugin.settings.excludePaths = value
+              .split("\n")
+              .map((line) => line.trim())
+              .filter((line) => line.length > 0);
+            await this.plugin.saveSettings();
+          });
+        text.inputEl.rows = 4;
+      });
+
+    new Setting(containerEl)
       .setName("Last sync")
       .setDesc(this.plugin.settings.lastSyncSummary || "No completed sync yet.");
 
