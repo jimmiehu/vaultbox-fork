@@ -206,6 +206,20 @@ export class VaultboxSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
+      .setName("Keep Dropbox version on conflict")
+      .setDesc(
+        "When a file differs on both sides with no clean history, overwrite the LOCAL copy with the Dropbox version instead of blocking the sync. Handy for the first sync. Warning: this discards conflicting on-device edits, so turn it OFF once your vault is set up. It never deletes files — a note Dropbox has deleted, or a name/case clash, still blocks for manual review.",
+      )
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.conflictPreferRemote)
+          .onChange(async (value) => {
+            this.plugin.settings.conflictPreferRemote = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
       .setName("Last sync")
       .setDesc(this.plugin.settings.lastSyncSummary || "No completed sync yet.");
 

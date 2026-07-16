@@ -306,12 +306,17 @@ async function downloadRemoteFile(args: {
 
   const existing = await readLocalSnapshot(args.vault, localPath);
 
-  if (args.operation.previous) {
-    if (!existing || existing.snapshot.contentHash !== args.operation.previous.localContentHash) {
-      throw new Error(`Local file changed before download: ${localPath}`);
+  // A prefer-Dropbox conflict resolution intentionally overwrites the local copy, so skip the
+  // guards that normally protect an unexpected local file. The remote content is still hash-verified
+  // below before anything is written.
+  if (!args.operation.overwriteLocal) {
+    if (args.operation.previous) {
+      if (!existing || existing.snapshot.contentHash !== args.operation.previous.localContentHash) {
+        throw new Error(`Local file changed before download: ${localPath}`);
+      }
+    } else if (existing) {
+      throw new Error(`Local file appeared before download: ${localPath}`);
     }
-  } else if (existing) {
-    throw new Error(`Local file appeared before download: ${localPath}`);
   }
 
   const content = await args.dropbox.download(toDropboxPath(args.rootPath, localPath));

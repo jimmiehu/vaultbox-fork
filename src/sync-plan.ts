@@ -34,6 +34,7 @@ export type SyncOperation =
       path: string;
       remote: DropboxFileMetadata;
       previous?: SyncedFileState;
+      overwriteLocal?: boolean;
     }
   | {
       kind: "delete-remote";
@@ -189,6 +190,47 @@ export function createSyncPlan(args: {
     operations,
     conflicts,
     summary: summarizePlan(operations, conflicts),
+  };
+}
+
+const REMOTE_RESOLVABLE_CONFLICT_TYPES: SyncConflictType[] = [
+  "both-new",
+  "both-modified",
+  "local-delete-remote-edit",
+];
+
+// "Prefer Dropbox on conflict": resolve content conflicts by overwriting the local copy with the
+// Dropbox version. It ONLY ever pulls remote content over local — it never deletes a local file, so a
+// conflict where Dropbox deleted the file (local-edit-remote-delete) and every structural/case conflict
+// still block for manual review. Off by default; meant for the initial reconcile.
+export function resolveConflictsPreferRemote(plan: SyncPlan): SyncPlan {
+  if (plan.conflicts.length === 0) {
+    return plan;
+  }
+
+  const operations = [...plan.operations];
+  const remainingConflicts: SyncConflict[] = [];
+
+  for (const conflict of plan.conflicts) {
+    if (REMOTE_RESOLVABLE_CONFLICT_TYPES.includes(conflict.type) && conflict.remote) {
+      operations.push({
+        kind: "download",
+        path: remoteRelativePath(conflict.remote),
+        remote: conflict.remote,
+        previous: conflict.previous,
+        overwriteLocal: true,
+      });
+    } else {
+      remainingConflicts.push(conflict);
+    }
+  }
+
+  operations.sort((first, second) => first.path.localeCompare(second.path));
+
+  return {
+    operations,
+    conflicts: remainingConflicts,
+    summary: summarizePlan(operations, remainingConflicts),
   };
 }
 

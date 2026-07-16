@@ -22,6 +22,7 @@ import {
   createSyncPlan,
   formatSyncPlan,
   isPlanEmpty,
+  resolveConflictsPreferRemote,
   scanLocalVault,
   type SyncPlan,
 } from "./sync-plan";
@@ -401,7 +402,7 @@ export default class VaultboxPlugin extends Plugin {
       this.createDropboxClient().listAllFiles(folderPath),
     ]);
 
-    return createSyncPlan({
+    const plan = createSyncPlan({
       localFiles,
       remoteFiles: createRemoteFileSnapshot(remoteFiles, folderPath, {
         configDir: this.app.vault.configDir,
@@ -409,6 +410,8 @@ export default class VaultboxPlugin extends Plugin {
       }),
       state: this.syncState,
     });
+
+    return this.settings.conflictPreferRemote ? resolveConflictsPreferRemote(plan) : plan;
   }
 }
 

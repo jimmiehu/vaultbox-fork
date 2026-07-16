@@ -5,9 +5,13 @@ import {
   formatSyncPlan,
   getDropboxContentHash,
   normalizePathKey,
+  resolveConflictsPreferRemote,
   scanLocalVault,
   shouldSyncPath,
   type LocalFileSnapshot,
+  type SyncConflict,
+  type SyncPlan,
+  type SyncPlanSummary,
 } from "../src/sync-plan";
 import type { DropboxFileMetadata, SyncedFileState, VaultboxSyncState } from "../src/types";
 
@@ -344,6 +348,67 @@ function fakeVault(files: Array<{ path: string; content: string }>): Parameters<
       return new TextEncoder().encode(match.content).buffer;
     },
   } as never;
+}
+
+describe("resolveConflictsPreferRemote", () => {
+  it("resolves a both-new content conflict by overwriting local with the Dropbox version", () => {
+    const remote = remoteFile("cities/kyiv.md", "remote-hash", "rev-r");
+    const startingPlan: SyncPlan = {
+      operations: [{ kind: "noop", path: "notes/a.md" }],
+      conflicts: [conflict("both-new", "cities/kyiv.md", { remote })],
+      summary: summary({ noops: 1, conflicts: 1 }),
+    };
+
+    const resolved = resolveConflictsPreferRemote(startingPlan);
+
+    expect(resolved.conflicts).toHaveLength(0);
+    expect(resolved.summary.conflicts).toBe(0);
+    expect(resolved.summary.downloads).toBe(1);
+    expect(resolved.operations.find((operation) => operation.path === "cities/kyiv.md")).toMatchObject({
+      kind: "download",
+      overwriteLocal: true,
+      remote,
+    });
+  });
+
+  it("never auto-deletes local: a file Dropbox has deleted still blocks", () => {
+    const startingPlan: SyncPlan = {
+      operations: [],
+      conflicts: [conflict("local-edit-remote-delete", "a.md", { previous: synced("a.md", "h", "h", "rev") })],
+      summary: summary({ conflicts: 1 }),
+    };
+
+    const resolved = resolveConflictsPreferRemote(startingPlan);
+
+    expect(resolved.conflicts).toHaveLength(1);
+    expect(resolved.operations).toHaveLength(0);
+  });
+
+  it("leaves structural case/path conflicts untouched", () => {
+    const startingPlan: SyncPlan = {
+      operations: [],
+      conflicts: [conflict("path-shape-conflict", "A", {}), conflict("path-case-mismatch", "b.md", {})],
+      summary: summary({ conflicts: 2 }),
+    };
+
+    const resolved = resolveConflictsPreferRemote(startingPlan);
+
+    expect(resolved.conflicts).toHaveLength(2);
+    expect(resolved.summary.downloads).toBe(0);
+  });
+
+  it("returns the plan unchanged when there are no conflicts", () => {
+    const startingPlan: SyncPlan = { operations: [], conflicts: [], summary: summary({}) };
+    expect(resolveConflictsPreferRemote(startingPlan)).toBe(startingPlan);
+  });
+});
+
+function conflict(type: SyncConflict["type"], path: string, extras: Partial<SyncConflict>): SyncConflict {
+  return { kind: "conflict", type, path, message: `conflict ${path}`, ...extras };
+}
+
+function summary(partial: Partial<SyncPlanSummary>): SyncPlanSummary {
+  return { uploads: 0, downloads: 0, remoteDeletes: 0, localDeletes: 0, noops: 0, conflicts: 0, ...partial };
 }
 
 function localMap(...files: LocalFileSnapshot[]): Map<string, LocalFileSnapshot> {

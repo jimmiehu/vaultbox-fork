@@ -4,6 +4,7 @@ export interface VaultboxSettings {
   refreshToken: string;
   selectedFolderPath: string;
   excludePaths: string[];
+  conflictPreferRemote: boolean;
   syncMode: "manual" | "automatic";
   syncIntervalMinutes: number;
   syncOnStartup: boolean;
@@ -23,6 +24,7 @@ export const DEFAULT_SETTINGS: VaultboxSettings = {
   refreshToken: "",
   selectedFolderPath: "",
   excludePaths: [],
+  conflictPreferRemote: false,
   syncMode: "manual",
   syncIntervalMinutes: 15,
   syncOnStartup: false,

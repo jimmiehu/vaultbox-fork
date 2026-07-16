@@ -279,6 +279,35 @@ describe("sync executor", () => {
     });
   });
 
+  it("overwrites an existing local file when a download is flagged to keep the Dropbox version", async () => {
+    const newHash = await hash("dropbox wins");
+    // Local file present with no previous state — a normal download would refuse with
+    // "Local file appeared before download"; overwriteLocal is the prefer-Dropbox resolution.
+    const vault = new FakeVault({ "cities/kyiv.md": "phone partial" });
+    const dropbox = new FakeDropbox({ downloadContent: bytes("dropbox wins") });
+
+    const result = await executeSyncPlan({
+      vault: vault.asVault(),
+      dropbox,
+      rootPath: "/Vault",
+      currentState: emptyState(),
+      plan: plan([
+        {
+          kind: "download",
+          path: "cities/kyiv.md",
+          remote: remoteFile("cities/kyiv.md", newHash, "rev-new"),
+          overwriteLocal: true,
+        },
+      ]),
+    });
+
+    expect(vault.text("cities/kyiv.md")).toBe("dropbox wins");
+    expect(result.state.files["cities/kyiv.md"]).toMatchObject({
+      localContentHash: newHash,
+      remoteRev: "rev-new",
+    });
+  });
+
   it("refuses to download over a local folder", async () => {
     const contentHash = await hash("remote file");
     const vault = new FakeVault({});
